@@ -4,7 +4,7 @@ use crate::data::repositories::update_state;
 use crate::data::sqlite_error::SqliteOperationError;
 use crate::data::sqlite_pool::{reopen_sqlite_pool, wait_for_sqlite_pool};
 use crate::domain::settings::{
-    DesktopBehaviorSettings, WebActivityBridgeSettings, WebActivitySettings,
+    ChimeSettings, DesktopBehaviorSettings, WebActivityBridgeSettings, WebActivitySettings,
 };
 use tauri::{AppHandle, Runtime};
 
@@ -88,6 +88,24 @@ pub async fn load_web_activity_settings<R: Runtime>(
     app_settings::load_web_activity_settings(&pool)
         .await
         .map_err(|error| format!("failed to load web activity settings: {error}"))
+}
+
+/// Load chime settings and publish them to the playback module.
+///
+/// A read failure is not fatal: the defaults are published instead, so a chime still
+/// plays with default tone and volume rather than staying silent for the session.
+pub async fn load_chime_settings<R: Runtime>(app: &AppHandle<R>) -> Result<ChimeSettings, String> {
+    let pool = wait_for_sqlite_pool(app).await?;
+    let settings = app_settings::load_chime_settings(&pool)
+        .await
+        .unwrap_or_else(|error| {
+            eprintln!(
+                "[chime] failed to load chime settings, using defaults for this session: {error}"
+            );
+            ChimeSettings::default()
+        });
+    crate::platform::windows::chime::remember_settings(settings.clone());
+    Ok(settings)
 }
 
 pub async fn load_title_recording_enabled<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String> {

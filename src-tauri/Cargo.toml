@@ -17,6 +17,13 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+# `indexmap` reaches this crate through `schemars`' `preserve_order` feature, and it
+# must carry its `std` feature explicitly. Left to its own build script, indexmap probes
+# the sysroot for `std` via autocfg; under this repo's pinned minimal toolchain that
+# probe does not fire, `has_std` stays undefined, and `IndexMap`'s hasher parameter
+# loses its default — so `schemars`' two-argument `IndexMap` alias fails to compile.
+# Naming the feature takes the `CARGO_FEATURE_STD` path and skips the probe entirely.
+indexmap = { version = "1.9.3", features = ["std"] }
 
 [[example]]
 name = "windows-resource-sample"

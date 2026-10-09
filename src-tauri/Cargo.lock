@@ -3435,6 +3435,7 @@ dependencies = [
  "icu_locale",
  "icu_plurals",
  "image",
+ "indexmap 1.9.3",
  "parquet",
  "percent-encoding",
  "psl",

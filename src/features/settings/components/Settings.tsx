@@ -7,11 +7,13 @@ import type { AppLanguage } from "../../../shared/settings/appSettings.ts";
 import QuietPageHeader from "../../../shared/components/QuietPageHeader";
 import QuietButton from "../../../shared/components/QuietButton";
 import SettingsAppearancePanel from "./SettingsAppearancePanel";
+import SettingsChimePanel from "./SettingsChimePanel";
 import SettingsDataSafetyPanel from "./SettingsDataSafetyPanel";
 import SettingsInterfacePanel from "./SettingsInterfacePanel";
 import SettingsResidentPanel from "./SettingsResidentPanel";
 import SettingsTrackingPanel from "./SettingsTrackingPanel";
 import { useSettingsPageState } from "../hooks/useSettingsPageState";
+import { useChimeSettings } from "../hooks/useChimeSettings";
 import { useWebActivitySetupState } from "../hooks/useWebActivitySetupState";
 import { useSettingsImportState } from "../hooks/useSettingsImportState.ts";
 import { prepareSettingsLanguagePreview } from "../services/settingsLanguagePreview.ts";
@@ -46,6 +48,7 @@ export default function Settings({
     onPrepareImportCategories,
     onImportedDataChanged,
   );
+  const chimeState = useChimeSettings();
   const {
     dialogs,
     loading,
@@ -278,6 +281,17 @@ export default function Settings({
             onLaunchAtLoginChange={(nextChecked) => handleChange("launchAtLogin", nextChecked)}
             startMinimizedChecked={draftSettings.startMinimized}
             onStartMinimizedChange={(nextChecked) => handleChange("startMinimized", nextChecked)}
+          />
+
+          <SettingsChimePanel
+            enabled={chimeState.settings.enabled}
+            volume={chimeState.settings.volume}
+            tone={chimeState.settings.tone}
+            busy={chimeState.busy}
+            onEnabledChange={chimeState.setEnabled}
+            onVolumeChange={chimeState.setVolume}
+            onToneChange={chimeState.setTone}
+            onPreview={chimeState.preview}
           />
 
           <SettingsInterfacePanel

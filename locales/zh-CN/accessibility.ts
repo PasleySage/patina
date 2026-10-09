@@ -1,6 +1,7 @@
 // zh-CN accessibility locale resource. Pure data only.
 export const MESSAGES = {
   "accessibility.settings.toggleShowTrayIcon": "切换托盘图标显示",
+  "accessibility.settings.toggleChime": "切换工具提醒声音",
   "accessibility.color.blueChannel": "蓝色通道",
   "accessibility.color.color": "颜色",
   "accessibility.color.colorFormat": "颜色格式",

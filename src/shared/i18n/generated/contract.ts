@@ -110,6 +110,7 @@ export interface UiText {
       "showRemoteMachineId": string;
       "showServiceToken": string;
       "toggleBackgroundOptimization": string;
+      "toggleChime": string;
       "toggleCloseToTray": string;
       "toggleGlobalTitle": string;
       "toggleLaunchAtLogin": string;
@@ -707,6 +708,21 @@ export interface UiText {
     "betaLabel": string;
     "cancel": string;
     "cancelled": string;
+    "chimeEnabledLabel": string;
+    "chimeGroupTitle": string;
+    "chimePreviewAction": string;
+    "chimeTitle": string;
+    "chimeToneHint": string;
+    "chimeToneLabel": string;
+    "chimeToneLabels": {
+      "bright": string;
+      "clear": string;
+      "deep": string;
+    };
+    "chimeVolumeDecrease": string;
+    "chimeVolumeHint": string;
+    "chimeVolumeIncrease": string;
+    "chimeVolumeLabel": string;
     "cleanup": string;
     "cleanupConfirmDetail": (label: string) => string;
     "cleanupConfirmTitle": string;

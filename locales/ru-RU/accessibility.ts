@@ -1,6 +1,7 @@
 // ru-RU locale resource. Pure data only.
 export const MESSAGES = {
   "accessibility.settings.toggleShowTrayIcon": "Переключить отображение значка в трее",
+  "accessibility.settings.toggleChime": "Переключить звук оповещения инструментов",
   "accessibility.color.blueChannel": "Синий канал",
   "accessibility.color.color": "Цвет",
   "accessibility.color.colorFormat": "Формат цвета",

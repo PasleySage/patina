@@ -1,6 +1,7 @@
 // es locale resource. Pure data only.
 export const MESSAGES = {
   "accessibility.settings.toggleShowTrayIcon": "Activar o desactivar el icono de la bandeja",
+  "accessibility.settings.toggleChime": "Activar o desactivar el sonido de alerta",
   "accessibility.color.blueChannel": "Canal azul",
   "accessibility.color.color": "Color",
   "accessibility.color.colorFormat": "Formato de color",

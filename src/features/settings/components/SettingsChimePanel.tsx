@@ -1,0 +1,99 @@
+import { useLocaleText } from "../../../shared/i18n/index.ts";
+import { BellRing } from "lucide-react";
+import QuietActionRow from "../../../shared/components/QuietActionRow";
+import QuietButton from "../../../shared/components/QuietButton";
+import QuietSelect from "../../../shared/components/QuietSelect";
+import QuietStepperSlider from "../../../shared/components/QuietStepperSlider";
+import QuietSwitch from "../../../shared/components/QuietSwitch";
+import SettingsPanelHeader from "./SettingsPanelHeader";
+import { SettingsPreferenceGroup, SettingsPreferenceRow } from "./SettingsPreferenceLayout";
+import { CHIME_TONE_OPTIONS, type ChimeTone } from "../services/chimeSettingsService.ts";
+
+type SettingsChimePanelProps = {
+  enabled: boolean;
+  volume: number;
+  tone: ChimeTone;
+  busy: boolean;
+  onEnabledChange: (nextChecked: boolean) => void;
+  onVolumeChange: (nextVolume: number) => void;
+  onToneChange: (nextTone: ChimeTone) => void;
+  onPreview: () => void;
+};
+
+export default function SettingsChimePanel({
+  enabled,
+  volume,
+  tone,
+  busy,
+  onEnabledChange,
+  onVolumeChange,
+  onToneChange,
+  onPreview,
+}: SettingsChimePanelProps) {
+  const UI_TEXT = useLocaleText();
+  const toneLabels = UI_TEXT.settings.chimeToneLabels;
+  return (
+    <section className="qp-panel p-5 md:p-6">
+      <SettingsPanelHeader
+        icon={<BellRing size={16} className="text-[var(--qp-accent-default)]" />}
+        title={UI_TEXT.settings.chimeTitle}
+      />
+
+      <div className="mt-5 space-y-5">
+        <SettingsPreferenceGroup title={UI_TEXT.settings.chimeGroupTitle}>
+          <QuietActionRow className="settings-preference-list">
+            <SettingsPreferenceRow title={UI_TEXT.settings.chimeEnabledLabel}>
+              <QuietSwitch
+                checked={enabled}
+                onChange={onEnabledChange}
+                ariaLabel={UI_TEXT.accessibility.settings.toggleChime}
+              />
+            </SettingsPreferenceRow>
+            <SettingsPreferenceRow
+              title={UI_TEXT.settings.chimeVolumeLabel}
+              hint={UI_TEXT.settings.chimeVolumeHint}
+            >
+              <QuietStepperSlider
+                ariaLabel={UI_TEXT.settings.chimeVolumeLabel}
+                value={volume}
+                min={0}
+                max={100}
+                step={5}
+                displayValue={`${volume}%`}
+                decreaseAriaLabel={UI_TEXT.settings.chimeVolumeDecrease}
+                increaseAriaLabel={UI_TEXT.settings.chimeVolumeIncrease}
+                onChange={onVolumeChange}
+              />
+            </SettingsPreferenceRow>
+            <SettingsPreferenceRow
+              title={UI_TEXT.settings.chimeToneLabel}
+              hint={UI_TEXT.settings.chimeToneHint}
+            >
+              <div className="flex items-center gap-2">
+                <QuietSelect<ChimeTone>
+                  value={tone}
+                  disabled={!enabled}
+                  ariaLabel={UI_TEXT.settings.chimeToneLabel}
+                  density="compact"
+                  onChange={onToneChange}
+                  options={CHIME_TONE_OPTIONS.map((option) => ({
+                    value: option,
+                    label: toneLabels[option],
+                  }))}
+                />
+                <QuietButton
+                  onClick={onPreview}
+                  disabled={!enabled}
+                  busy={busy}
+                  size="compact"
+                >
+                  {UI_TEXT.settings.chimePreviewAction}
+                </QuietButton>
+              </div>
+            </SettingsPreferenceRow>
+          </QuietActionRow>
+        </SettingsPreferenceGroup>
+      </div>
+    </section>
+  );
+}

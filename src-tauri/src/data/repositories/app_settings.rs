@@ -1,6 +1,6 @@
 use crate::data::sqlite_error::SqliteOperationError;
 use crate::domain::settings::{
-    parse_boolean_setting, DesktopBehaviorSettings, RemoteStatusBridgeSettings,
+    parse_boolean_setting, ChimeSettings, DesktopBehaviorSettings, RemoteStatusBridgeSettings,
     WebActivityBridgeSettings, WebActivitySettings,
 };
 use sqlx::{Pool, Row, Sqlite};
@@ -19,6 +19,9 @@ const REMOTE_STATUS_BRIDGE_ENABLED_KEY: &str = "remote_status_bridge_enabled";
 const REMOTE_STATUS_BRIDGE_URL_KEY: &str = "remote_status_bridge_url";
 const REMOTE_STATUS_BRIDGE_TOKEN_KEY: &str = "remote_status_bridge_token";
 const REMOTE_STATUS_BRIDGE_MACHINE_ID_KEY: &str = "remote_status_bridge_machine_id";
+const CHIME_ENABLED_KEY: &str = "chime_enabled";
+const CHIME_VOLUME_KEY: &str = "chime_volume";
+const CHIME_TONE_KEY: &str = "chime_tone";
 const MAX_APP_SETTING_VALUE_LEN: usize = 4096;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -88,6 +91,43 @@ pub async fn load_language_setting(pool: &Pool<Sqlite>) -> Result<Option<String>
         .await?
         .map(|row| row.try_get::<String, _>("value"))
         .transpose()
+}
+
+pub async fn load_chime_settings(pool: &Pool<Sqlite>) -> Result<ChimeSettings, sqlx::Error> {
+    let rows = sqlx::query("SELECT key, value FROM settings WHERE key IN (?, ?, ?)")
+        .bind(CHIME_ENABLED_KEY)
+        .bind(CHIME_VOLUME_KEY)
+        .bind(CHIME_TONE_KEY)
+        .fetch_all(pool)
+        .await?;
+
+    let mut enabled: Option<String> = None;
+    let mut volume: Option<String> = None;
+    let mut tone: Option<String> = None;
+
+    for row in rows {
+        let key: String = row.get("key");
+        let value: String = row.get("value");
+
+        match key.as_str() {
+            CHIME_ENABLED_KEY => enabled = Some(value),
+            CHIME_VOLUME_KEY => volume = Some(value),
+            CHIME_TONE_KEY => tone = Some(value),
+            _ => {}
+        }
+    }
+
+    let defaults = ChimeSettings::default();
+    Ok(ChimeSettings::normalized(
+        enabled.as_deref().map_or(defaults.enabled, |raw| {
+            parse_boolean_setting(raw, defaults.enabled)
+        }),
+        volume
+            .as_deref()
+            .and_then(|raw| raw.trim().parse::<i64>().ok())
+            .unwrap_or(i64::from(defaults.volume)),
+        tone.as_deref().unwrap_or(defaults.tone.as_str()),
+    ))
 }
 
 pub async fn commit_app_setting_mutations(
@@ -218,6 +258,9 @@ fn is_allowed_app_setting_key(key: &str) -> bool {
             | "remote_status_bridge_url"
             | "remote_status_bridge_token"
             | "remote_status_bridge_machine_id"
+            | CHIME_ENABLED_KEY
+            | CHIME_VOLUME_KEY
+            | CHIME_TONE_KEY
     )
 }
 
@@ -713,6 +756,76 @@ mod tests {
                     .await
                     .unwrap();
             assert_eq!(times, vec![(1_000, Some(end)), (end + 1_000, None)]);
+        });
+    }
+
+    #[test]
+    fn load_chime_settings_defaults_when_unset() {
+        tauri::async_runtime::block_on(async {
+            let pool = setup_test_db().await;
+            assert_eq!(
+                load_chime_settings(&pool).await.unwrap(),
+                ChimeSettings::default()
+            );
+        });
+    }
+
+    #[test]
+    fn load_chime_settings_reads_persisted_values() {
+        tauri::async_runtime::block_on(async {
+            let pool = setup_test_db().await;
+            commit_app_setting_mutations(
+                &pool,
+                &[
+                    AppSettingMutation {
+                        key: CHIME_ENABLED_KEY.to_string(),
+                        value: "false".to_string(),
+                    },
+                    AppSettingMutation {
+                        key: CHIME_VOLUME_KEY.to_string(),
+                        value: "35".to_string(),
+                    },
+                    AppSettingMutation {
+                        key: CHIME_TONE_KEY.to_string(),
+                        value: "deep".to_string(),
+                    },
+                ],
+            )
+            .await
+            .unwrap();
+
+            let settings = load_chime_settings(&pool).await.unwrap();
+            assert!(!settings.enabled);
+            assert_eq!(settings.volume, 35);
+            assert_eq!(settings.tone, "deep");
+        });
+    }
+
+    #[test]
+    fn load_chime_settings_repairs_corrupted_rows() {
+        tauri::async_runtime::block_on(async {
+            let pool = setup_test_db().await;
+            commit_app_setting_mutations(
+                &pool,
+                &[
+                    AppSettingMutation {
+                        key: CHIME_VOLUME_KEY.to_string(),
+                        value: "9999".to_string(),
+                    },
+                    AppSettingMutation {
+                        key: CHIME_TONE_KEY.to_string(),
+                        value: "not-a-tone".to_string(),
+                    },
+                ],
+            )
+            .await
+            .unwrap();
+
+            // A hand-edited or corrupted row must still yield a playable chime rather
+            // than a volume the audio path cannot honor or a tone with no sample.
+            let settings = load_chime_settings(&pool).await.unwrap();
+            assert_eq!(settings.volume, 100);
+            assert_eq!(settings.tone, "clear");
         });
     }
 }

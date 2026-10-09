@@ -1,6 +1,7 @@
 // en-US accessibility locale resource. Pure data only.
 export const MESSAGES = {
   "accessibility.settings.toggleShowTrayIcon": "Toggle tray icon visibility",
+  "accessibility.settings.toggleChime": "Toggle tool alert sound",
   "accessibility.color.blueChannel": "Blue channel",
   "accessibility.color.color": "Color",
   "accessibility.color.colorFormat": "Color format",

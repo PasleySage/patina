@@ -100,6 +100,13 @@ pub fn setup(
         runtime_health.clone(),
     );
     runtime_tasks::spawn_tracking_watchdog_restart_loop(app.handle().clone(), runtime_health);
+    // Chime settings must be published before the tools runtime starts, otherwise the
+    // first alert of the session would ring with default settings instead of the
+    // user's own.
+    tauri::async_runtime::block_on(crate::data::app_settings_service::load_chime_settings(
+        app.handle(),
+    ))
+    .map_err(std::io::Error::other)?;
     runtime_tasks::spawn_tools_runtime_restart_loop(app.handle().clone());
     runtime_tasks::spawn_scheduled_backup_runtime_restart_loop(app.handle().clone());
     runtime_tasks::spawn_scheduled_export_runtime_restart_loop(app.handle().clone());

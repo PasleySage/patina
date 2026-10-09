@@ -994,7 +994,21 @@ export const LOCALE_SOURCE_REVIEWS = {
     "settings.interfaceGroupTitle": "b72f0e46a601e3b1",
     "settings.windowBehaviorTitle": "4e1db14ed17e6456",
     "settings.runtimeBehaviorTitle": "18cffce351610162",
-    "native.storage.startupFailure": "80c0df8f469b2c0e"
+    "native.storage.startupFailure": "80c0df8f469b2c0e",
+    "accessibility.settings.toggleChime": "921eb1f8e2f8d0c0",
+    "settings.chimeTitle": "a5c0e9a595647cc8",
+    "settings.chimeGroupTitle": "caa7330f9dd366c3",
+    "settings.chimeEnabledLabel": "41ffe6c38eb8470b",
+    "settings.chimeVolumeLabel": "0389a6e62fc5caf9",
+    "settings.chimeVolumeHint": "14e5faee621930fe",
+    "settings.chimeVolumeDecrease": "016c7ea818626843",
+    "settings.chimeVolumeIncrease": "876862fbee22a7d7",
+    "settings.chimeToneLabel": "4660b2eaca56a8a9",
+    "settings.chimeToneHint": "788fa7bb985a243e",
+    "settings.chimePreviewAction": "d54d04ec26133b49",
+    "settings.chimeToneLabels.clear": "2c60cfd58e71d496",
+    "settings.chimeToneLabels.bright": "930b7591e2940109",
+    "settings.chimeToneLabels.deep": "c272d4186a66ffcb"
   },
   "es": {
     "about.description": "f16fb3f9d1381864",
@@ -1990,7 +2004,21 @@ export const LOCALE_SOURCE_REVIEWS = {
     "settings.interfaceGroupTitle": "b72f0e46a601e3b1",
     "settings.windowBehaviorTitle": "4e1db14ed17e6456",
     "settings.runtimeBehaviorTitle": "18cffce351610162",
-    "native.storage.startupFailure": "80c0df8f469b2c0e"
+    "native.storage.startupFailure": "80c0df8f469b2c0e",
+    "accessibility.settings.toggleChime": "921eb1f8e2f8d0c0",
+    "settings.chimeTitle": "a5c0e9a595647cc8",
+    "settings.chimeGroupTitle": "caa7330f9dd366c3",
+    "settings.chimeEnabledLabel": "41ffe6c38eb8470b",
+    "settings.chimeVolumeLabel": "0389a6e62fc5caf9",
+    "settings.chimeVolumeHint": "14e5faee621930fe",
+    "settings.chimeVolumeDecrease": "016c7ea818626843",
+    "settings.chimeVolumeIncrease": "876862fbee22a7d7",
+    "settings.chimeToneLabel": "4660b2eaca56a8a9",
+    "settings.chimeToneHint": "788fa7bb985a243e",
+    "settings.chimePreviewAction": "d54d04ec26133b49",
+    "settings.chimeToneLabels.clear": "2c60cfd58e71d496",
+    "settings.chimeToneLabels.bright": "930b7591e2940109",
+    "settings.chimeToneLabels.deep": "c272d4186a66ffcb"
   },
   "ru-RU": {
     "about.description": "f16fb3f9d1381864",
@@ -2986,6 +3014,20 @@ export const LOCALE_SOURCE_REVIEWS = {
     "settings.interfaceGroupTitle": "b72f0e46a601e3b1",
     "settings.windowBehaviorTitle": "4e1db14ed17e6456",
     "settings.runtimeBehaviorTitle": "18cffce351610162",
-    "native.storage.startupFailure": "80c0df8f469b2c0e"
+    "native.storage.startupFailure": "80c0df8f469b2c0e",
+    "accessibility.settings.toggleChime": "921eb1f8e2f8d0c0",
+    "settings.chimeTitle": "a5c0e9a595647cc8",
+    "settings.chimeGroupTitle": "caa7330f9dd366c3",
+    "settings.chimeEnabledLabel": "41ffe6c38eb8470b",
+    "settings.chimeVolumeLabel": "0389a6e62fc5caf9",
+    "settings.chimeVolumeHint": "14e5faee621930fe",
+    "settings.chimeVolumeDecrease": "016c7ea818626843",
+    "settings.chimeVolumeIncrease": "876862fbee22a7d7",
+    "settings.chimeToneLabel": "4660b2eaca56a8a9",
+    "settings.chimeToneHint": "788fa7bb985a243e",
+    "settings.chimePreviewAction": "d54d04ec26133b49",
+    "settings.chimeToneLabels.clear": "2c60cfd58e71d496",
+    "settings.chimeToneLabels.bright": "930b7591e2940109",
+    "settings.chimeToneLabels.deep": "c272d4186a66ffcb"
   }
 } as const;

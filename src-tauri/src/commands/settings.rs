@@ -112,6 +112,81 @@ pub fn cmd_set_background_optimization(
     Ok(())
 }
 
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ChimeSettingsDto {
+    enabled: bool,
+    volume: i64,
+    tone: String,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChimeSettingsSnapshotDto {
+    enabled: bool,
+    volume: u8,
+    tone: String,
+}
+
+impl From<crate::domain::settings::ChimeSettings> for ChimeSettingsSnapshotDto {
+    fn from(value: crate::domain::settings::ChimeSettings) -> Self {
+        Self {
+            enabled: value.enabled,
+            volume: value.volume,
+            tone: value.tone,
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn cmd_get_chime_settings(app: AppHandle) -> Result<ChimeSettingsSnapshotDto, String> {
+    let settings = crate::data::app_settings_service::load_chime_settings(&app).await?;
+    Ok(settings.into())
+}
+
+/// Persist chime settings, republish them to the playback module, and optionally
+/// play the new tone so the user hears the result of the change without leaving the
+/// settings surface.
+///
+/// The in-memory republish is what makes the next alert use the new settings; a write
+/// that only reached SQLite would keep ringing with the previous tone until restart.
+#[tauri::command]
+pub async fn cmd_commit_chime_settings(
+    input: ChimeSettingsDto,
+    preview: Option<bool>,
+    app: AppHandle,
+) -> Result<ChimeSettingsSnapshotDto, CommandErrorDto> {
+    let normalized = crate::domain::settings::ChimeSettings::normalized(
+        input.enabled,
+        input.volume,
+        &input.tone,
+    );
+    let mutations = [
+        AppSettingMutation {
+            key: "chime_enabled".to_string(),
+            value: normalized.enabled.to_string(),
+        },
+        AppSettingMutation {
+            key: "chime_volume".to_string(),
+            value: normalized.volume.to_string(),
+        },
+        AppSettingMutation {
+            key: "chime_tone".to_string(),
+            value: normalized.tone.clone(),
+        },
+    ];
+    let settings_commit_state = app.state::<AppSettingsCommitState>();
+    let _settings_commit_guard = settings_commit_state.lock().await;
+    commit_app_setting_mutations_with_recovery(&app, &mutations).await?;
+    drop(_settings_commit_guard);
+
+    crate::platform::windows::chime::remember_settings(normalized.clone());
+    if preview.unwrap_or(false) {
+        crate::platform::windows::chime::play_chime(&app);
+    }
+    Ok(normalized.into())
+}
+
 #[tauri::command]
 pub async fn cmd_commit_app_settings(
     mutations: Vec<AppSettingMutationDto>,

@@ -981,4 +981,109 @@ mod tests {
         );
         assert_eq!(next_state.grace_deadline_ms, Some(24_000));
     }
+
+    /// A chime played by Patina does create a real Windows audio session — verified on
+    /// the live audio stack — so the snapshot can contain a session whose process is
+    /// Patina itself. These tests lock the conclusion that such a session still cannot
+    /// reach the sustained participation decision, using the production functions
+    /// rather than a restatement of them.
+    ///
+    /// The identity is *derived* through `sustained_participation_app_identity` rather
+    /// than hardcoded to `None`. That is the whole point: if a future change made Patina
+    /// a recognized media application, this fixture would start reporting a real
+    /// identity and these tests would fail, which is the regression they exist to catch.
+    fn chime_session_signal() -> SustainedParticipationSignalSnapshot {
+        const PATINA_EXE: &str = "Patina.exe";
+        const PATINA_PATH: &str = r"C:\Users\tester\AppData\Local\Patina\Patina.exe";
+        SustainedParticipationSignalSnapshot {
+            is_available: true,
+            is_active: true,
+            signal_source: Some(SustainedParticipationSignalSource::AudioSession),
+            source_app_id: Some(PATINA_EXE.into()),
+            source_app_identity: sustained_participation_app_identity(PATINA_EXE, PATINA_PATH),
+            playback_type: None,
+        }
+    }
+
+    /// The premise the isolation argument rests on: Patina is not a recognized media
+    /// application, so a Patina session carries no identity and cannot match a window.
+    /// If this ever starts returning `Some`, the isolation is gone and the tests below
+    /// will say so.
+    #[test]
+    fn patina_is_not_a_recognized_media_application() {
+        assert_eq!(
+            sustained_participation_app_identity("Patina.exe", r"C:\Patina\Patina.exe"),
+            None,
+            "Patina became a recognized media application; the chime isolation argument \
+             in ADR-0004 no longer holds and needs a new mechanism"
+        );
+    }
+
+    fn no_media_signal() -> SustainedParticipationSignalSnapshot {
+        SustainedParticipationSignalSnapshot::default()
+    }
+
+    #[test]
+    fn chime_session_is_not_matched_against_an_unrelated_foreground_window() {
+        let evaluation = evaluate_sustained_participation_signal(
+            "Code.exe",
+            r"C:/Program Files/Microsoft VS Code/Code.exe",
+            &chime_session_signal(),
+        );
+        assert_eq!(
+            evaluation.match_result,
+            SustainedParticipationSignalMatchResult::IdentityMismatch
+        );
+    }
+
+    #[test]
+    fn chime_session_never_reaches_the_matched_signal() {
+        // Even if `resolve_signal_for_window` hands the chime session back as its
+        // fallback, `select_matched_signal` re-evaluates it and only accepts a full
+        // match, so an unrelated foreground window cannot be sustained by it.
+        let foreground_exe = "Code.exe";
+        let foreground_path = r"C:/Program Files/Microsoft VS Code/Code.exe";
+        let system_media = evaluate_sustained_participation_signal(
+            foreground_exe,
+            foreground_path,
+            &no_media_signal(),
+        );
+        let audio_session = evaluate_sustained_participation_signal(
+            foreground_exe,
+            foreground_path,
+            &chime_session_signal(),
+        );
+
+        assert!(select_matched_signal(
+            foreground_exe,
+            foreground_path,
+            &system_media,
+            &audio_session
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn a_chime_does_not_change_status_for_an_idle_but_present_window() {
+        // The end-to-end shape: a user who is present and working in another app keeps
+        // their normal status, because the only audio session belongs to Patina.
+        let (status, _) = resolve_tracking_status_with_runtime(SustainedParticipationStatusInput {
+            exe_name: "Code.exe",
+            process_path: r"C:/Program Files/Microsoft VS Code/Code.exe",
+            idle_time_ms: 5_000,
+            is_afk: false,
+            continuity_window_secs: 180,
+            sustained_participation_secs: 600,
+            tracking_paused: false,
+            now_ms: 1_000_000,
+            previous_state: &SustainedParticipationRuntimeState::default(),
+            system_media_signal: &no_media_signal(),
+            audio_signal: &chime_session_signal(),
+        });
+
+        assert!(
+            !status.sustained_participation_active,
+            "a Patina chime must not mark an unrelated foreground window as sustained"
+        );
+    }
 }

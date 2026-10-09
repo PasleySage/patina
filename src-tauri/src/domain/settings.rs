@@ -11,6 +11,54 @@ pub const DEFAULT_REMOTE_STATUS_BRIDGE_URL: &str = "";
 pub const DEFAULT_REMOTE_STATUS_BRIDGE_TOKEN: &str = "";
 pub const DEFAULT_REMOTE_STATUS_BRIDGE_MACHINE_ID: &str = "";
 pub const WEB_ACTIVITY_PORT_MIN: u16 = 1024;
+pub const CHIME_TONES: [&str; 3] = ["clear", "bright", "deep"];
+pub const DEFAULT_CHIME_TONE: &str = "clear";
+pub const CHIME_VOLUME_MIN: u8 = 0;
+pub const CHIME_VOLUME_MAX: u8 = 100;
+pub const DEFAULT_CHIME_VOLUME: u8 = 60;
+
+/// Whether and how a chime plays when a tool alert fires.
+///
+/// Chime settings are a property of alerts rather than of any single tool, so they
+/// are persisted with the other app settings instead of with tool runtime state.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ChimeSettings {
+    pub enabled: bool,
+    pub volume: u8,
+    pub tone: String,
+}
+
+impl Default for ChimeSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            volume: DEFAULT_CHIME_VOLUME,
+            tone: DEFAULT_CHIME_TONE.to_string(),
+        }
+    }
+}
+
+impl ChimeSettings {
+    /// Clamp stored values so a hand-edited or corrupted settings row cannot make the
+    /// chime unplayable or unbounded.
+    pub fn normalized(enabled: bool, volume: i64, tone: &str) -> Self {
+        Self {
+            enabled,
+            volume: volume.clamp(CHIME_VOLUME_MIN as i64, CHIME_VOLUME_MAX as i64) as u8,
+            tone: normalize_chime_tone(tone).to_string(),
+        }
+    }
+}
+
+/// Map a stored tone onto a known one, so an unrecognized value degrades to the
+/// default instead of leaving the app without a usable chime.
+pub fn normalize_chime_tone(tone: &str) -> &'static str {
+    CHIME_TONES
+        .iter()
+        .copied()
+        .find(|candidate| *candidate == tone)
+        .unwrap_or(DEFAULT_CHIME_TONE)
+}
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
