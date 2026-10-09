@@ -182,7 +182,8 @@ pub async fn cmd_commit_chime_settings(
 
     crate::platform::windows::chime::remember_settings(normalized.clone());
     if preview.unwrap_or(false) {
-        crate::platform::windows::chime::play_chime(&app);
+        // Forced, so a user can audition a tone and level before enabling the chime.
+        crate::platform::windows::chime::play_chime(&app, true);
     }
     Ok(normalized.into())
 }

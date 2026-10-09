@@ -719,6 +719,7 @@ export interface UiText {
       "clear": string;
       "deep": string;
     };
+    "chimeUnavailable": string;
     "chimeVolumeDecrease": string;
     "chimeVolumeHint": string;
     "chimeVolumeIncrease": string;

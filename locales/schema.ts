@@ -5615,4 +5615,5 @@ export const MESSAGE_SCHEMA = {
   "settings.chimeToneLabels.clear": { "kind": "string", "params": [], "surface": "frontend" },
   "settings.chimeToneLabels.bright": { "kind": "string", "params": [], "surface": "frontend" },
   "settings.chimeToneLabels.deep": { "kind": "string", "params": [], "surface": "frontend" },
+  "settings.chimeUnavailable": { "kind": "string", "params": [], "surface": "frontend" },
 } as const;

@@ -1008,7 +1008,8 @@ export const LOCALE_SOURCE_REVIEWS = {
     "settings.chimePreviewAction": "d54d04ec26133b49",
     "settings.chimeToneLabels.clear": "2c60cfd58e71d496",
     "settings.chimeToneLabels.bright": "930b7591e2940109",
-    "settings.chimeToneLabels.deep": "c272d4186a66ffcb"
+    "settings.chimeToneLabels.deep": "c272d4186a66ffcb",
+    "settings.chimeUnavailable": "81288aa7a7c02fc5"
   },
   "es": {
     "about.description": "f16fb3f9d1381864",
@@ -2018,7 +2019,8 @@ export const LOCALE_SOURCE_REVIEWS = {
     "settings.chimePreviewAction": "d54d04ec26133b49",
     "settings.chimeToneLabels.clear": "2c60cfd58e71d496",
     "settings.chimeToneLabels.bright": "930b7591e2940109",
-    "settings.chimeToneLabels.deep": "c272d4186a66ffcb"
+    "settings.chimeToneLabels.deep": "c272d4186a66ffcb",
+    "settings.chimeUnavailable": "81288aa7a7c02fc5"
   },
   "ru-RU": {
     "about.description": "f16fb3f9d1381864",
@@ -3028,6 +3030,7 @@ export const LOCALE_SOURCE_REVIEWS = {
     "settings.chimePreviewAction": "d54d04ec26133b49",
     "settings.chimeToneLabels.clear": "2c60cfd58e71d496",
     "settings.chimeToneLabels.bright": "930b7591e2940109",
-    "settings.chimeToneLabels.deep": "c272d4186a66ffcb"
+    "settings.chimeToneLabels.deep": "c272d4186a66ffcb",
+    "settings.chimeUnavailable": "81288aa7a7c02fc5"
   }
 } as const;

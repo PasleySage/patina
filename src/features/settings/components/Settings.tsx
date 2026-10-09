@@ -288,6 +288,7 @@ export default function Settings({
             volume={chimeState.settings.volume}
             tone={chimeState.settings.tone}
             busy={chimeState.busy}
+            loadFailed={chimeState.loadFailed}
             onEnabledChange={chimeState.setEnabled}
             onVolumeChange={chimeState.setVolume}
             onToneChange={chimeState.setTone}

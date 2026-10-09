@@ -13,6 +13,8 @@ const APP_COMMANDS: &[&str] = &[
     "cmd_set_background_optimization",
     "cmd_commit_app_settings",
     "cmd_commit_classification_settings",
+    "cmd_get_chime_settings",
+    "cmd_commit_chime_settings",
     "cmd_get_web_links",
     "cmd_get_legacy_classification_apps",
     "cmd_pick_export_save_file",

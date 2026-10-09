@@ -393,6 +393,12 @@
           "markdownDescription": "Enables the cmd_commit_canonical_import command without any pre-configured scope."
         },
         {
+          "description": "Enables the cmd_commit_chime_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cmd-commit-chime-settings",
+          "markdownDescription": "Enables the cmd_commit_chime_settings command without any pre-configured scope."
+        },
+        {
           "description": "Enables the cmd_commit_classification_settings command without any pre-configured scope.",
           "type": "string",
           "const": "allow-cmd-commit-classification-settings",
@@ -517,6 +523,12 @@
           "type": "string",
           "const": "allow-cmd-get-activity-read-model-status",
           "markdownDescription": "Enables the cmd_get_activity_read_model_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the cmd_get_chime_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cmd-get-chime-settings",
+          "markdownDescription": "Enables the cmd_get_chime_settings command without any pre-configured scope."
         },
         {
           "description": "Enables the cmd_get_legacy_classification_apps command without any pre-configured scope.",
@@ -1023,6 +1035,12 @@
           "markdownDescription": "Denies the cmd_commit_canonical_import command without any pre-configured scope."
         },
         {
+          "description": "Denies the cmd_commit_chime_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cmd-commit-chime-settings",
+          "markdownDescription": "Denies the cmd_commit_chime_settings command without any pre-configured scope."
+        },
+        {
           "description": "Denies the cmd_commit_classification_settings command without any pre-configured scope.",
           "type": "string",
           "const": "deny-cmd-commit-classification-settings",
@@ -1147,6 +1165,12 @@
           "type": "string",
           "const": "deny-cmd-get-activity-read-model-status",
           "markdownDescription": "Denies the cmd_get_activity_read_model_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cmd_get_chime_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cmd-get-chime-settings",
+          "markdownDescription": "Denies the cmd_get_chime_settings command without any pre-configured scope."
         },
         {
           "description": "Denies the cmd_get_legacy_classification_apps command without any pre-configured scope.",

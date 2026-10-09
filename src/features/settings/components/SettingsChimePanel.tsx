@@ -14,6 +14,7 @@ type SettingsChimePanelProps = {
   volume: number;
   tone: ChimeTone;
   busy: boolean;
+  loadFailed: boolean;
   onEnabledChange: (nextChecked: boolean) => void;
   onVolumeChange: (nextVolume: number) => void;
   onToneChange: (nextTone: ChimeTone) => void;
@@ -25,6 +26,7 @@ export default function SettingsChimePanel({
   volume,
   tone,
   busy,
+  loadFailed,
   onEnabledChange,
   onVolumeChange,
   onToneChange,
@@ -38,6 +40,12 @@ export default function SettingsChimePanel({
         icon={<BellRing size={16} className="text-[var(--qp-accent-default)]" />}
         title={UI_TEXT.settings.chimeTitle}
       />
+
+      {loadFailed ? (
+        <p role="alert" className="mt-3 text-xs text-[var(--qp-danger-default)]">
+          {UI_TEXT.settings.chimeUnavailable}
+        </p>
+      ) : null}
 
       <div className="mt-5 space-y-5">
         <SettingsPreferenceGroup title={UI_TEXT.settings.chimeGroupTitle}>
@@ -70,9 +78,11 @@ export default function SettingsChimePanel({
               hint={UI_TEXT.settings.chimeToneHint}
             >
               <div className="flex items-center gap-2">
+                {/* Volume and tone stay adjustable while the chime is off: a user
+                    normally picks a tone and a level first, then turns it on. Only the
+                    preview is gated, because playing it is the thing being disabled. */}
                 <QuietSelect<ChimeTone>
                   value={tone}
-                  disabled={!enabled}
                   ariaLabel={UI_TEXT.settings.chimeToneLabel}
                   density="compact"
                   onChange={onToneChange}
@@ -83,7 +93,7 @@ export default function SettingsChimePanel({
                 />
                 <QuietButton
                   onClick={onPreview}
-                  disabled={!enabled}
+                  disabled={volume === 0}
                   busy={busy}
                   size="compact"
                 >

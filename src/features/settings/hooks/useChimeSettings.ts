@@ -10,6 +10,9 @@ import {
 type ChimePanelState = {
   settings: ChimeSettings;
   busy: boolean;
+  /// True when the stored settings could not be read, so the panel is showing defaults
+  /// rather than the user's real configuration.
+  loadFailed: boolean;
   setEnabled: (nextEnabled: boolean) => void;
   setVolume: (nextVolume: number) => void;
   setTone: (nextTone: ChimeTone) => void;
@@ -25,6 +28,7 @@ const DEFAULT_CHIME: ChimeSettings = { enabled: true, volume: 60, tone: "clear" 
 export function useChimeSettings(): ChimePanelState {
   const [settings, setSettings] = useState<ChimeSettings>(DEFAULT_CHIME);
   const [busy, setBusy] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   /// Last value the backend confirmed, used to roll a failed commit back. Deliberately
   /// not derived from `settings`: the optimistic value is already in `settings`, so
   /// reading the rollback source from there would restore the change that just failed.
@@ -44,7 +48,10 @@ export function useChimeSettings(): ChimePanelState {
         }
       })
       .catch((error) => {
+        // Surface it: a silent fallback to defaults looks identical to "the chime is
+        // off", which is indistinguishable from a working mute.
         console.error("[chime] failed to load chime settings", error);
+        setLoadFailed(true);
       });
     return () => {
       cancelled = true;
@@ -62,8 +69,10 @@ export function useChimeSettings(): ChimePanelState {
       lastCommitted.current = saved;
       pending.current = saved;
       setSettings(saved);
+      setLoadFailed(false);
     } catch (error) {
       console.error("[chime] failed to save chime settings", error);
+      setLoadFailed(true);
       // Roll back to the last value the backend confirmed, not to the optimistic one.
       setSettings(lastCommitted.current);
     } finally {
@@ -74,6 +83,7 @@ export function useChimeSettings(): ChimePanelState {
   return {
     settings,
     busy,
+    loadFailed,
     setEnabled: (enabled) => void commit({ ...pending.current, enabled }),
     setVolume: (volume) => void commit({ ...pending.current, volume }),
     setTone: (tone) => void commit({ ...pending.current, tone }),

@@ -633,4 +633,5 @@ export const MESSAGES = {
   "settings.chimeToneLabels.clear": "Claro",
   "settings.chimeToneLabels.bright": "Brillante",
   "settings.chimeToneLabels.deep": "Grave",
+  "settings.chimeUnavailable": "No se pudieron cargar los ajustes de sonido; los cambios aquí no se guardarán.",
 } as const;

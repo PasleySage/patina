@@ -487,4 +487,5 @@ export const MESSAGES = {
   "settings.chimeToneLabels.clear": "清脆",
   "settings.chimeToneLabels.bright": "明亮",
   "settings.chimeToneLabels.deep": "低沉",
+  "settings.chimeUnavailable": "无法读取声音设置，此处的修改不会被保存。",
 } as const;

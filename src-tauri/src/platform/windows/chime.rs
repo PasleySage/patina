@@ -49,9 +49,17 @@ fn current_settings() -> ChimeSettings {
 /// Never reports failure: a chime is additive to the alert surface, so a machine with no
 /// audio device, a missing sample, or a muted chime still gets the visual alert.
 /// Problems are logged with the reason and the next step.
-pub fn play_chime<R: Runtime>(app: &AppHandle<R>) {
+///
+/// `force` is for the settings preview: a user picks a tone and level before turning the
+/// chime on, so previewing must work while the chime is still disabled. Volume of zero
+/// still means silence even on a preview — that is the one case where the user is asking
+/// for no sound.
+pub fn play_chime<R: Runtime>(app: &AppHandle<R>, force: bool) {
     let settings = current_settings();
-    if !settings.enabled || settings.volume == CHIME_VOLUME_MIN {
+    if settings.volume == CHIME_VOLUME_MIN {
+        return;
+    }
+    if !settings.enabled && !force {
         return;
     }
     let tone = normalize_chime_tone(&settings.tone).to_string();

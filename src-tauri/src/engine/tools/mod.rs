@@ -616,7 +616,7 @@ fn send_tool_alert<R: Runtime + 'static>(app: &AppHandle<R>, alert: ToolAlert) {
     // Every alert kind passes through here, so the chime is played once for all of
     // them and a future kind is audible by construction. Playback cannot fail the
     // alert: it runs off the alert path and only logs.
-    crate::platform::windows::chime::play_chime(app);
+    crate::platform::windows::chime::play_chime(app, false);
 
     if let Err(error) = app.emit(TOOLS_ALERT_EVENT, &alert) {
         eprintln!("[tools] failed to emit tool alert: {error}");
