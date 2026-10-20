@@ -16,8 +16,8 @@ const CARGO_LOCK_PATH = path.join(ROOT, "src-tauri", "Cargo.lock");
 
 const VERSION_PATTERN =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9A-Za-z-][0-9A-Za-z-]*))*))?$/;
-const GITHUB_UPDATER_ENDPOINT =
-  "https://github.com/Ceceliaee/patina/releases/latest/download/latest.json";
+export const GITHUB_UPDATER_ENDPOINT =
+  "https://github.com/PasleySage/patina/releases/latest/download/latest.json";
 const SHA256_SUMS_FILE_NAME = "SHA256SUMS.txt";
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const MAX_RELEASE_NOTE_LENGTH = 100;
@@ -541,7 +541,7 @@ export function renderReleaseNotes(parsed) {
 
     const displayArch = arch === "arm64" ? "ARM64" : arch;
     const badge = `https://img.shields.io/badge/Setup-${displayArch}-1683a7?logo=windows11&logoColor=white`;
-    return `[![Setup ${displayArch}](${badge})](${buildReleaseInstallerUrl(parsed.version, "Ceceliaee/patina", platform)})`;
+    return `[![Setup ${displayArch}](${badge})](${buildReleaseInstallerUrl(parsed.version, "PasleySage/patina", platform)})`;
   });
 
   lines.push(

@@ -11,6 +11,7 @@ import {
   verifyUpdaterSignature,
   buildReleaseInstallerName,
   buildUpdaterEndpoints,
+  GITHUB_UPDATER_ENDPOINT,
   fieldValue,
   parseSha256SumsText,
   prepareReleaseAssets,
@@ -93,14 +94,17 @@ function testUpdaterNotesFallsBackToAppNote() {
 }
 
 function testUpdaterEndpointsKeepGithubFirstAndPreserveMirrors() {
+  // Asserted against the constant rather than a literal URL so this test keeps its
+  // meaning — GitHub endpoint first, mirrors preserved, duplicates collapsed — no matter
+  // which repository the build points at.
   const endpoints = buildUpdaterEndpoints([
     "https://pub-example.r2.dev/latest.json",
-    "https://github.com/Ceceliaee/patina/releases/latest/download/latest.json",
+    GITHUB_UPDATER_ENDPOINT,
     "https://pub-example.r2.dev/latest.json",
   ]);
 
   assert.deepEqual(endpoints, [
-    "https://github.com/Ceceliaee/patina/releases/latest/download/latest.json",
+    GITHUB_UPDATER_ENDPOINT,
     "https://pub-example.r2.dev/latest.json",
   ]);
 }
@@ -233,7 +237,9 @@ function testReleaseNotesOnlyMentionPatinaInstaller() {
   assert.match(notes, /\| 系统 \| 下载 \|/);
   assert.match(notes, /\| Windows \| .*Setup-x64.*<br>.*Setup-ARM64/);
   assert.match(notes, /\[!\[Setup x64\]\(https:\/\/img\.shields\.io\/badge\/Setup-x64-1683a7\?logo=windows11&logoColor=white\)\]/);
-  assert.match(notes, /https:\/\/github.com\/Ceceliaee\/patina\/releases\/download\/v1\.9\.3\/Patina_1\.9\.3_arm64-setup\.exe/);
+  // Repo-agnostic on purpose: this asserts the download link points at the ARM64
+  // installer, not which owner the release lives under.
+  assert.match(notes, /https:\/\/github\.com\/[^/]+\/patina\/releases\/download\/v1\.9\.3\/Patina_1\.9\.3_arm64-setup\.exe/);
   assert.doesNotMatch(notes, /<version>/);
   assert.doesNotMatch(notes, /不确定设备架构/);
   assert.doesNotMatch(notes, /下载 `SHA256SUMS\.txt`/);

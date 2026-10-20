@@ -109,6 +109,7 @@
     "release:check": "pnpm run check:full && pnpm run release:validate-changelog",
     "preview": "vite preview",
     "tauri": "node --experimental-strip-types scripts/tauri-cli.ts",
+    "sign:windows": "node --experimental-strip-types scripts/sign-windows-bundle.ts",
     "preinstall": "node --experimental-strip-types scripts/check-toolchain.ts",
     "check:toolchain": "node --experimental-strip-types scripts/check-toolchain.ts",
     "test:source-maps": "node --experimental-strip-types tests/viteSourceMap.test.ts",
