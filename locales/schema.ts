@@ -5193,11 +5193,6 @@ export const MESSAGE_SCHEMA = {
     "params": [],
     "surface": "frontend"
   },
-  "update.appUpdate": {
-    "kind": "string",
-    "params": [],
-    "surface": "frontend"
-  },
   "update.checkAgain": {
     "kind": "string",
     "params": [],
@@ -5346,11 +5341,6 @@ export const MESSAGE_SCHEMA = {
     ],
     "surface": "frontend"
   },
-  "update.feedback": {
-    "kind": "string",
-    "params": [],
-    "surface": "frontend"
-  },
   "update.foundVersion": {
     "kind": "message",
     "params": [
@@ -5459,11 +5449,6 @@ export const MESSAGE_SCHEMA = {
     "surface": "frontend"
   },
   "update.sidebarEntry": {
-    "kind": "string",
-    "params": [],
-    "surface": "frontend"
-  },
-  "update.support": {
     "kind": "string",
     "params": [],
     "surface": "frontend"

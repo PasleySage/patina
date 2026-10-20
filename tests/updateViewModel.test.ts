@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import {
   buildUpdateConfirmDialogModel as buildUpdateConfirmDialogModelRaw,
-  buildUpdateStatusPanelModel as buildUpdateStatusPanelModelRaw,
   shouldOpenUpdateDialogForSnapshot,
   shouldShowCompactUpdateEntry,
 } from "../src/features/update/services/updateViewModel.ts";
@@ -18,11 +17,6 @@ import { MemoryStorage, withWindowStorage } from "./helpers/browserTestGlobals.t
 
 const ZH_TEXT = getLocaleText("zh-CN");
 const EN_TEXT = await loadLocaleText("en-US");
-const buildUpdateStatusPanelModel = (
-  snapshot: UpdateSnapshot,
-  isChecking: boolean,
-  isInstalling: boolean,
-) => buildUpdateStatusPanelModelRaw(snapshot, isChecking, isInstalling, ZH_TEXT);
 const buildUpdateConfirmDialogModel = (snapshot: UpdateSnapshot) => (
   buildUpdateConfirmDialogModelRaw(snapshot, ZH_TEXT, "zh-CN")
 );
@@ -52,105 +46,38 @@ function runTest(name: string, fn: () => void) {
   console.log(`PASS ${name}`);
 }
 
-runTest("available uses download action and shows the compact shell entry", () => {
-  const snapshot = makeSnapshot({
-    status: "available",
-    latestVersion: "0.1.1",
-    assetDownloadUrl: "https://example.com/update.exe",
-  });
-  const panel = buildUpdateStatusPanelModel(snapshot, false, false);
+// The compact shell entry is the only update affordance left outside the dialog, so its
+// visibility per state is the thing that can actually regress in the UI.
+runTest("compact shell entry appears only while an update is actionable", () => {
+  for (const status of ["available", "downloaded", "downloading", "installing"] as const) {
+    assert.equal(
+      shouldShowCompactUpdateEntry(makeSnapshot({ status })),
+      true,
+      `${status} should surface the entry`,
+    );
+  }
 
-  assert.equal(panel.primaryAction.label, "立即下载");
-  assert.equal(panel.primaryAction.action, "open_confirm");
-  assert.equal(panel.secondaryAction, null);
-  assert.equal(shouldShowCompactUpdateEntry(snapshot), true);
-  assert.equal(panel.progress, null);
-});
+  for (const status of ["idle", "up_to_date", "checking"] as const) {
+    assert.equal(
+      shouldShowCompactUpdateEntry(makeSnapshot({ status })),
+      false,
+      `${status} should not surface the entry`,
+    );
+  }
 
-runTest("up-to-date uses check action without the compact shell entry", () => {
-  const snapshot = makeSnapshot({ status: "up_to_date" });
-  const panel = buildUpdateStatusPanelModel(snapshot, false, false);
-
-  assert.equal(panel.primaryAction.label, "检查更新");
-  assert.equal(panel.primaryAction.action, "check");
-  assert.equal(panel.secondaryAction, null);
-  assert.equal(shouldShowCompactUpdateEntry(snapshot), false);
-});
-
-runTest("download error prefers direct package download and keeps retry secondary action", () => {
-  const panel = buildUpdateStatusPanelModel(makeSnapshot({
-    status: "error",
-    errorStage: "download",
-    errorMessage: "failed to download update: timeout",
-    latestVersion: "0.2.3",
-    assetDownloadUrl: "https://example.com/update.exe",
-  }), false, false);
-
-  assert.equal(panel.statusTitle, "无法下载安装包");
-  assert.equal(panel.primaryAction.action, "open_download_url");
-  assert.equal(panel.secondaryAction?.action, "check");
-});
-
-runTest("check error falls back to release page", () => {
-  const panel = buildUpdateStatusPanelModel(makeSnapshot({
-    status: "error",
-    errorStage: "check",
-    errorMessage: "failed to check updates: error sending request for url (https://github.com/Ceceliaee/patina/releases/latest/download/latest.json)",
-  }), false, false);
-
-  assert.equal(panel.statusTitle, "无法检查更新");
-  assert.equal(panel.statusDetail, "无法访问更新清单。当前网络可能无法连接 GitHub，可稍后重试或手动下载。");
-  assert.equal(panel.statusDetail?.includes("failed to check updates"), false);
-  assert.equal(panel.statusDetail?.includes("github.com"), false);
-  assert.equal(panel.primaryAction.action, "open_release_page");
-  assert.equal(panel.secondaryAction?.action, "check");
-  assert.equal(shouldShowCompactUpdateEntry(makeSnapshot({
-    status: "error",
-    errorStage: "check",
-    errorMessage: "failed to check updates: network offline",
-  })), false);
-});
-
-runTest("checking uses disabled loading action", () => {
-  const panel = buildUpdateStatusPanelModel(makeSnapshot({ status: "checking" }), true, false);
-  assert.equal(panel.primaryAction.label, "检查中...");
-  assert.equal(panel.primaryAction.disabled, true);
-  assert.equal(panel.primaryAction.loading, true);
-});
-
-runTest("downloading builds determinate progress when total is known", () => {
-  const panel = buildUpdateStatusPanelModel(makeSnapshot({
-    status: "downloading",
-    latestVersion: "0.2.0",
-    downloadedBytes: 512,
-    totalBytes: 1024,
-  }), false, true);
-
-  assert.equal(panel.progress?.valueText, "50%");
-  assert.equal(panel.progress?.indeterminate, false);
-  assert.equal(shouldShowCompactUpdateEntry(makeSnapshot({ status: "downloading" })), true);
-});
-
-runTest("download preparation does not show a misleading partial progress bar", () => {
-  const panel = buildUpdateStatusPanelModel(makeSnapshot({
-    status: "downloading",
-    latestVersion: "0.2.0",
-  }), false, true);
-
-  assert.equal(panel.progress, null);
-});
-
-runTest("downloading with bytes but unknown total stays indeterminate", () => {
-  const panel = buildUpdateStatusPanelModel(makeSnapshot({
-    status: "downloading",
-    latestVersion: "0.2.0",
-    downloadedBytes: 512,
-  }), false, true);
-
-  assert.notEqual(panel.progress, null);
-  assert.equal(panel.progress?.percent, null);
-  assert.equal(panel.progress?.valueText, null);
-  assert.equal(panel.progress?.indeterminate, true);
+  // Every error state stays out of the title bar: the dialog carries the recovery path.
+  for (const errorStage of ["check", "download", "install"] as const) {
+    assert.equal(
+      shouldShowCompactUpdateEntry(makeSnapshot({
+        status: "error",
+        errorStage,
+        latestVersion: "0.2.3",
+        assetDownloadUrl: "https://example.com/update.exe",
+      })),
+      false,
+      `error/${errorStage} should not surface the entry`,
+    );
+  }
 });
 
 runTest("confirm dialog opens for active update states and structured error states", () => {
@@ -226,22 +153,6 @@ runTest("confirm dialog shows manual fallback actions for download errors", () =
   assert.equal(model.confirmDescription.includes("failed to download update"), false);
   assert.equal(model.primaryAction?.action, "open_download_url");
   assert.equal(model.secondaryAction?.action, "check");
-});
-
-runTest("install error keeps retry install as primary action", () => {
-  const snapshot = makeSnapshot({
-    status: "error",
-    errorStage: "install",
-    errorMessage: "failed to install update",
-    latestVersion: "0.2.3",
-    assetDownloadUrl: "https://example.com/update.exe",
-  });
-  const panel = buildUpdateStatusPanelModel(snapshot, false, false);
-
-  assert.equal(panel.primaryAction.action, "open_confirm");
-  assert.equal(panel.primaryAction.label, "再次安装");
-  assert.equal(panel.secondaryAction?.action, "open_download_url");
-  assert.equal(shouldShowCompactUpdateEntry(snapshot), false);
 });
 
 runTest("update relaunch view storage persists current keys", () => {

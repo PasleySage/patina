@@ -1,6 +1,5 @@
 // zh-CN update locale resource. Pure data only.
 export const MESSAGES = {
-  "update.appUpdate": "应用更新",
   "update.checkAgain": "重新检查",
   "update.checkErrorDetail": "无法访问更新清单。当前网络可能无法连接 GitHub，可稍后重试或手动下载。",
   "update.checkFailed": "无法检查更新",
@@ -70,7 +69,6 @@ export const MESSAGES = {
       ]
     }
   },
-  "update.feedback": "问题反馈",
   "update.foundVersion": {
     "$type": "message",
     "body": {
@@ -126,7 +124,6 @@ export const MESSAGES = {
   "update.releaseNotes": "更新说明",
   "update.restartInstall": "重启安装",
   "update.sidebarEntry": "更新",
-  "update.support": "赞助项目",
   "update.targetVersion": {
     "$type": "message",
     "body": {

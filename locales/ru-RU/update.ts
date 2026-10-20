@@ -1,6 +1,5 @@
 // ru-RU locale resource. Pure data only.
 export const MESSAGES = {
-  "update.appUpdate": "Обновления прил.",
   "update.checkAgain": "Проверить снова",
   "update.checkErrorDetail": "Не удалось получить манифест обновления. Возможно, GitHub недоступен в текущей сети. Повторите позже или скачайте обновление вручную.",
   "update.checkFailed": "Не удалось проверить обновления",
@@ -70,7 +69,6 @@ export const MESSAGES = {
       ]
     }
   },
-  "update.feedback": "Обратная связь",
   "update.foundVersion": {
     "$type": "message",
     "body": {
@@ -133,7 +131,6 @@ export const MESSAGES = {
   "update.releaseNotes": "Описание выпуска",
   "update.restartInstall": "Перезапустить для установки",
   "update.sidebarEntry": "Обновить",
-  "update.support": "Поддержать",
   "update.targetVersion": {
     "$type": "message",
     "body": {

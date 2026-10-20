@@ -1,6 +1,5 @@
 // en-US update locale resource. Pure data only.
 export const MESSAGES = {
-  "update.appUpdate": "App updates",
   "update.checkAgain": "Check again",
   "update.checkErrorDetail": "Could not access the update manifest. Your current network may not be able to reach GitHub. Try again later or download manually.",
   "update.checkFailed": "Could not check updates",
@@ -70,7 +69,6 @@ export const MESSAGES = {
       ]
     }
   },
-  "update.feedback": "Feedback",
   "update.foundVersion": {
     "$type": "message",
     "body": {
@@ -126,7 +124,6 @@ export const MESSAGES = {
   "update.releaseNotes": "Release notes",
   "update.restartInstall": "Restart to install",
   "update.sidebarEntry": "Update",
-  "update.support": "Sponsor",
   "update.targetVersion": {
     "$type": "message",
     "body": {

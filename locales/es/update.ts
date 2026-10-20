@@ -1,6 +1,5 @@
 // es locale resource. Pure data only.
 export const MESSAGES = {
-  "update.appUpdate": "Actualizaciones de la app",
   "update.checkAgain": "Comprobar de nuevo",
   "update.checkErrorDetail": "No se pudo acceder al manifiesto de actualización. Puede que tu red no permita acceder a GitHub. Inténtalo más tarde o descarga manualmente.",
   "update.checkFailed": "No se pudieron comprobar las actualizaciones",
@@ -70,7 +69,6 @@ export const MESSAGES = {
       ]
     }
   },
-  "update.feedback": "Comentarios",
   "update.foundVersion": {
     "$type": "message",
     "body": {
@@ -133,7 +131,6 @@ export const MESSAGES = {
   "update.releaseNotes": "Notas de la versión",
   "update.restartInstall": "Reiniciar para instalar",
   "update.sidebarEntry": "Actualizar",
-  "update.support": "Apoyar",
   "update.targetVersion": {
     "$type": "message",
     "body": {

@@ -1056,7 +1056,6 @@ export interface UiText {
     "title": string;
   };
   "update": {
-    "appUpdate": string;
     "checkAgain": string;
     "checkErrorDetail": string;
     "checkFailed": string;
@@ -1082,7 +1081,6 @@ export interface UiText {
     "downloadInstaller": string;
     "downloadNow": string;
     "errorDetailWithSummary": (prefix: string, summary: string) => string;
-    "feedback": string;
     "foundVersion": (version: string) => string;
     "genericErrorDetail": string;
     "installAgain": string;
@@ -1103,7 +1101,6 @@ export interface UiText {
     "releaseNotes": string;
     "restartInstall": string;
     "sidebarEntry": string;
-    "support": string;
     "targetVersion": (version: string) => string;
     "unknownVersion": string;
     "updateFailed": string;

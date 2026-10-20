@@ -5,7 +5,6 @@ import AppTitleBar from "./components/AppTitleBar";
 import AppViewOutlet from "./components/AppViewOutlet.tsx";
 import type { View } from "./types/view";
 import Dashboard from "../features/dashboard/components/Dashboard.tsx";
-import type AboutView from "../features/about/components/About.tsx";
 import type AppMappingView from "../features/classification/components/AppMapping.tsx";
 import type DataView from "../features/data/components/Data.tsx";
 import type HistoryView from "../features/history/components/History.tsx";
@@ -70,7 +69,9 @@ type HistoryDateRequest = { dateKey: string; requestId: number };
 const History = createPreloadableViewComponent<ComponentProps<typeof HistoryView>>("history");
 const Data = createPreloadableViewComponent<ComponentProps<typeof DataView>>("data");
 const Settings = createPreloadableViewComponent<ComponentProps<typeof SettingsView>>("settings");
-const About = createPreloadableViewComponent<ComponentProps<typeof AboutView>>("about");
+// About takes no props, so the generic falls back to the default rather than
+// `ComponentProps` resolving to `unknown`, which the `object` constraint rejects.
+const About = createPreloadableViewComponent("about");
 const AppMapping =
   createPreloadableViewComponent<ComponentProps<typeof AppMappingView>>("mapping");
 const Tools = createPreloadableViewComponent<ComponentProps<typeof ToolsView>>("tools");
@@ -88,7 +89,7 @@ export default function AppShellContent({
   windowTracking: WindowTrackingState;
 }) {
   const { confirm, dialogs } = useQuietDialogs();
-  const { titleBarUpdateEntry, settingsUpdateEntry } = useAppShellUpdateEntry();
+  const { titleBarUpdateEntry } = useAppShellUpdateEntry();
   const {
     currentView,
     prepareNavigate,
@@ -358,11 +359,7 @@ export default function AppShellContent({
               />
             ),
             about: (
-              <About
-                key="about"
-                {...settingsUpdateEntry}
-                onToast={pushToast}
-              />
+              <About key="about" />
             ),
             mapping: (
               <AppMapping
