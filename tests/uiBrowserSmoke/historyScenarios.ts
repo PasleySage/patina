@@ -56,21 +56,19 @@ export async function runHistoryReadFailureScenarios(context: BrowserSmokeContex
         });
         return globalThis.__PATINA_HISTORY_RESULT(request);
       };
-      globalThis.__PATINA_SQL_SELECT_HOOK = (query, params) => {
-        if (params[0] === 'history.bootstrap_snapshot.v1') return new Promise(resolve => {
+      globalThis.__PATINA_READ_HOOK = (command, payload) => {
+        if (command === 'cmd_get_setting_rows' && payload.key === 'history.bootstrap_snapshot.v1') return new Promise(resolve => {
           globalThis.__PATINA_HISTORY_BOOTSTRAP_PENDING.push(resolve);
         });
-        if (query.includes('from session_title_samples')) return [];
-        if (query.includes('from sessions') && !query.startsWith('select distinct') && !query.includes('min(start_time)')) {
-          if (params.length !== 10) throw new Error('Unexpected History session-range SQL parameters');
-          const matchingRecords = records.filter(record => record.startTime < params[1] && record.endTime > params[2]);
-          globalThis.__PATINA_HISTORY_SQL_READS ??= [];
-          globalThis.__PATINA_HISTORY_SQL_READS.push({ params, returnedStarts: matchingRecords.map(record => record.startTime) });
-          return matchingRecords.map((record, index) => ({ id: 9800 + index, record_id: 9800 + index, origin: 'native',
+        if (command === 'cmd_get_history_range_rows') {
+          const matchingRecords = records.filter(record => record.startTime < payload.endMs && record.endTime > payload.startMs);
+          globalThis.__PATINA_HISTORY_DETAIL_READS ??= [];
+          globalThis.__PATINA_HISTORY_DETAIL_READS.push({ payload, returnedStarts: matchingRecords.map(record => record.startTime) });
+          return { titleSamples: [], sessions: matchingRecords.map((record, index) => ({ id: 9800 + index, origin: 'native',
             app_name: record.appName, exe_name: record.exeName, window_title: 'History failure fixture',
             start_time: record.startTime, end_time: record.endTime, effective_end_time: record.endTime,
             capacity_end_time: null, duration: record.endTime - record.startTime,
-            continuity_group_start_time: record.startTime }));
+            continuity_group_start_time: record.startTime })) };
         }
       };
     })()` }, sessionId) as { identifier: string };
@@ -88,7 +86,7 @@ export async function runHistoryReadFailureScenarios(context: BrowserSmokeContex
         calendar: Boolean(document.querySelector('.history-calendar-popover')),
         mode: globalThis.__PATINA_HISTORY_MODE,
         reads: globalThis.__PATINA_AGGREGATE_READS?.slice(-6),
-        sqlReads: globalThis.__PATINA_HISTORY_SQL_READS?.slice(-4),
+        detailReads: globalThis.__PATINA_HISTORY_DETAIL_READS?.slice(-4),
       })`).catch(error => ({ diagnosticError: String(error) }));
       throw new AggregateError([failure, new Error(`History fixture before cleanup: ${JSON.stringify(observation)}`)], "History read failure scenario failed");
     } finally {
@@ -187,11 +185,11 @@ export async function runHistoryReadFailureScenarios(context: BrowserSmokeContex
         const startTime = new Date(2026, 8, 12, 9).getTime(), endTime = startTime + 60 * 60_000;
         const sessions = ${withFacts} ? [{ id: 9800, appName: 'Cursor', exeName: 'cursor.exe', windowTitle: '', startTime, endTime,
           duration: endTime - startTime, continuityGroupStartTime: startTime, titleSampleDetails: [] }] : [];
-        const payload = JSON.stringify({ version: 2, createdAtMs: Date.now(),
+        const payload = JSON.stringify({ version: 4, createdAtMs: Date.now(),
           identity: { dateKey: '2026-09-12', mappingVersion: 0, webActivityEnabled: false },
-          snapshot: { fetchedAtMs: Date.now(), icons: {}, daySessions: sessions, weeklySessions: [],
+          snapshot: { fetchedAtMs: Date.now(), icons: {}, daySessions: sessions, hasActiveSession: false,
             dayAggregateSessions: [{ appName: 'Cursor', exeName: 'cursor.exe', startTime, endTime }], weeklyAggregateSessions: [],
-            aggregateIncludesExactFacts: true, dayWebSegments: [], webDomainFavicons: {}, webDomainOverrides: {} } });
+            dayWebSegments: [], webDomainFavicons: {}, webDomainOverrides: {} } });
         for (const resolve of globalThis.__PATINA_HISTORY_BOOTSTRAP_PENDING.splice(0)) resolve([{ value: payload }]);
       })()`);
       await waitForExpression(client, sessionId, `${state} === 'bootstrap'`);
@@ -360,11 +358,11 @@ export async function runHistoryReadFailureScenarios(context: BrowserSmokeContex
       await evaluate(client, sessionId, `(() => {
         const startTime = new Date(2026, 8, 12, 1).getTime();
         const endTime = startTime + 3 * 60 * 60_000;
-        const payload = JSON.stringify({ version: 2, createdAtMs: Date.now(),
+        const payload = JSON.stringify({ version: 4, createdAtMs: Date.now(),
           identity: { dateKey: '2026-09-12', mappingVersion: 0, webActivityEnabled: false },
-          snapshot: { fetchedAtMs: Date.now(), icons: {}, daySessions: [], weeklySessions: [],
+          snapshot: { fetchedAtMs: Date.now(), icons: {}, daySessions: [], hasActiveSession: false,
             dayAggregateSessions: [{ appName: 'Cursor', exeName: 'cursor.exe', startTime, endTime }],
-            weeklyAggregateSessions: [], aggregateIncludesExactFacts: true,
+            weeklyAggregateSessions: [],
             dayWebSegments: [], webDomainFavicons: {}, webDomainOverrides: {} } });
         for (const resolve of globalThis.__PATINA_HISTORY_BOOTSTRAP_PENDING.splice(0)) resolve([{ value: payload }]);
       })()`);
@@ -416,8 +414,8 @@ export async function runHistoryScenarios(context: BrowserSmokeContext) {
       await waitForExpression(client, sessionId, `Boolean(document.querySelector('.history-timeline-lane-track .qp-timeline-segment'))`);
       assert.equal(await evaluate(client, sessionId, `(() => {
         const lane = [...document.querySelectorAll('.history-timeline-lane-row')].find(row => row.getAttribute('aria-label')?.startsWith('匿名'));
-        return !!lane?.querySelector('.history-timeline-lane-identity svg.lucide-eye-off') && !lane?.querySelector('.history-timeline-lane-dot');
-      })()`), true, 'anonymous application lane uses EyeOff in its application icon slot');
+        return !!lane?.querySelector('.history-timeline-lane-identity svg.anonymous-activity-icon') && !lane?.querySelector('.history-timeline-lane-dot');
+      })()`), true, 'anonymous application lane uses abstract tiles in its application icon slot');
       for (const theme of ["light", "dark"] as const) {
         await client.command("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: theme }] }, sessionId);
         await waitForExpression(client, sessionId, `document.documentElement.dataset.theme === '${theme}'`);
@@ -480,12 +478,10 @@ export async function runHistoryScenarios(context: BrowserSmokeContext) {
             title: 'DST web midnight crossing', favicon_url: null, start_time: startTime, end_time: endTime,
             duration: endTime - startTime };
           globalThis.__TIME_TRACKER_ENABLE_WEB_FIXTURE = true;
-          globalThis.__PATINA_SQL_SELECT_HOOK = (query) => {
-            if (query.includes('from session_title_samples')) return [];
-            if (query.includes('from web_activity_segments')) return [web];
-            if (query.includes('min(start_time)')) return [{ earliest_start_time: dayStart }];
-            if (query.includes('from sessions') && !query.startsWith('select distinct')) return query.includes('effective_end_time')
-              ? [{ ...session, record_id: session.id, effective_end_time: endTime, capacity_end_time: null }] : [session];
+          globalThis.__PATINA_READ_HOOK = (command) => {
+            if (command === 'cmd_get_web_activity_segment_rows') return [web];
+            if (command === 'cmd_get_earliest_activity_start_time') return dayStart;
+            if (command === 'cmd_get_history_range_rows') return { sessions: [session], titleSamples: [] };
           };
           globalThis.__PATINA_AGGREGATE_HOOK = ({ startMs, endMs }) => ({
             records: endTime > startMs && startTime < endMs ? [{ appName: 'Cursor', exeName: 'cursor.exe',
@@ -1438,7 +1434,10 @@ export async function runHistoryScenarios(context: BrowserSmokeContext) {
     await waitForExpression(
       client!,
       sessionId,
-      `Boolean(document.querySelector(".history-timeline-open"))`,
+      `document.querySelector('[data-history-content-state]')?.getAttribute('data-history-content-state') === 'ready'
+        && Boolean(document.querySelector(".history-timeline-open"))`,
+      15_000,
+      "History exact read is ready before asserting timeline dialog contents",
     );
     assert.equal(
       await evaluate(client!, sessionId, `
@@ -1499,7 +1498,9 @@ export async function runHistoryScenarios(context: BrowserSmokeContext) {
     await waitForExpression(
       client!,
       sessionId,
-      `Boolean(document.querySelector(".history-timeline-dialog-surface"))`,
+      `Boolean(document.querySelector(".history-timeline-dialog-body .history-timeline-list"))`,
+      15_000,
+      "History dialog contains the loaded exact sessions",
     );
     assert.equal(
       await evaluate(client!, sessionId, `
@@ -2420,7 +2421,14 @@ export async function runHistoryScenarios(context: BrowserSmokeContext) {
           return Boolean(
             list
             && list.children.length === ${HISTORY_TITLE_DETAIL_COUNT}
-            && popover.scrollHeight > popover.clientHeight
+            && list.scrollHeight > list.clientHeight
+            && getComputedStyle(list, '::-webkit-scrollbar').width === getComputedStyle(list).getPropertyValue('--qp-scrollbar-size').trim()
+            && getComputedStyle(list, '::-webkit-scrollbar-thumb').backgroundClip === 'content-box'
+            && getComputedStyle(popover).overflowY === 'hidden'
+            && list.getBoundingClientRect().right <= popoverRect.right - 4
+            && list.getBoundingClientRect().bottom <= popoverRect.bottom - 10
+            && list.firstElementChild.getBoundingClientRect().right <= list.getBoundingClientRect().left + list.clientWidth - 4
+            && popoverRect.right - list.firstElementChild.getBoundingClientRect().right <= 16
             && Math.abs(popoverRect.width - 426) < 1
             && Math.abs(leftSpan - 142) < 1
             && Math.abs(leftShare - 1 / 3) < 0.02
@@ -2432,6 +2440,14 @@ export async function runHistoryScenarios(context: BrowserSmokeContext) {
       `),
       true,
     );
+    await evaluate(client!, sessionId, `document.querySelector('.history-activity-popover-list').scrollTop = 100000`);
+    await waitForExpression(client!, sessionId, `(() => {
+      const list = document.querySelector('.history-activity-popover-list');
+      const last = list?.lastElementChild;
+      return list && last && list.scrollTop > 0
+        && Math.abs(list.scrollHeight - list.clientHeight - list.scrollTop) <= 1
+        && last.getBoundingClientRect().bottom <= list.getBoundingClientRect().bottom + 1;
+    })()`);
     assert.equal(
       await evaluate(client!, sessionId, `
         (() => {

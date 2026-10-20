@@ -113,7 +113,7 @@ export function useAppMappingState({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [actionError, setActionError] = useState<"save" | "delete" | "refresh" | null>(null);
   const deletingAppRecordsRef = useRef(false);
-  const [saving, setSaving] = useState(false);
+  const saving = saveStatus === "saving";
   const [deletingSessionsExe, setDeletingSessionsExe] = useState<string | null>(null);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [colorFormat, setColorFormat] = useState<ColorDisplayFormat>("hex");
@@ -208,7 +208,7 @@ export function useAppMappingState({
       seedLinkedAppName(next, current, savedState, parent, appCatalog.candidates);
       return next;
     });
-    setSaveStatus("idle");
+    setSaveStatus(current => current === "saving" ? current : "idle");
   }, [savedState, appCatalog.candidates]);
   const candidateIconExeNames = useMemo(
     () => [...new Set([...appCatalog.candidates, ...groupedCandidates].map((candidate) => candidate.exeName))],
@@ -232,16 +232,11 @@ export function useAppMappingState({
   });
   const iconThemeColors = useIconThemeColors(mappingIcons);
 
-  const hasUnsavedChanges = (() => {
-    if (!savedState || !draftState) return false;
-    return ClassificationService.hasDraftChanges(savedState, draftState);
-  })();
+  const hasUnsavedChanges = Boolean(savedState && draftState
+    && ClassificationService.hasDraftChanges(savedState, draftState));
 
   useEffect(() => {
     hasUnsavedChangesRef.current = hasUnsavedChanges;
-  }, [hasUnsavedChanges]);
-
-  useEffect(() => {
     onDirtyChange?.(hasUnsavedChanges);
   }, [hasUnsavedChanges, onDirtyChange]);
 
@@ -268,8 +263,6 @@ export function useAppMappingState({
     resolveWebDomainDisplayName,
     resolveWebDomainColor,
     resolveWebDomainCategory,
-    resolveWebDomainEnabled,
-    resolveWebDomainTitleCaptureEnabled,
     resolveAutoDisplayName,
     resolveDisplayNameFromOverride,
     resolveWebDomainAutoDisplayName,
@@ -322,6 +315,15 @@ export function useAppMappingState({
     setDraftState((current) => {
       if (!current) return current;
       return updateWebDomainOverrideInDraftState(current, normalizedDomain, nextOverride);
+    });
+  }, []);
+
+  const updateWebDomainMembers = useCallback((domains: string[], field: "captureTitle" | "enabled", value: boolean) => {
+    setDraftState(current => {
+      if (!current) return current;
+      const webDomainOverrides = { ...current.webDomainOverrides };
+      for (const domain of domains) webDomainOverrides[domain] = { ...webDomainOverrides[domain], [field]: value };
+      return { ...current, webDomainOverrides };
     });
   }, []);
 
@@ -454,32 +456,6 @@ export function useAppMappingState({
       color: colorValue ?? undefined,
       enabled: current?.enabled !== false,
       captureTitle: current?.captureTitle !== false,
-      updatedAt: current?.updatedAt,
-    });
-    updateWebDomainOverride(candidate.normalizedDomain, nextOverride);
-  }, [draftWebDomainOverrides, updateWebDomainOverride]);
-
-  const handleWebDomainTrackingToggle = useCallback((candidate: ObservedWebDomainCandidate, nextEnabled: boolean) => {
-    const current = draftWebDomainOverrides[candidate.normalizedDomain] ?? null;
-    const nextOverride = buildWebDomainMappingOverride({
-      category: current?.category,
-      color: current?.color,
-      displayName: current?.displayName,
-      enabled: nextEnabled,
-      captureTitle: current?.captureTitle !== false,
-      updatedAt: current?.updatedAt,
-    });
-    updateWebDomainOverride(candidate.normalizedDomain, nextOverride);
-  }, [draftWebDomainOverrides, updateWebDomainOverride]);
-
-  const handleWebDomainTitleCaptureToggle = useCallback((candidate: ObservedWebDomainCandidate, nextCaptureTitle: boolean) => {
-    const current = draftWebDomainOverrides[candidate.normalizedDomain] ?? null;
-    const nextOverride = buildWebDomainMappingOverride({
-      category: current?.category,
-      color: current?.color,
-      displayName: current?.displayName,
-      enabled: current?.enabled !== false,
-      captureTitle: nextCaptureTitle,
       updatedAt: current?.updatedAt,
     });
     updateWebDomainOverride(candidate.normalizedDomain, nextOverride);
@@ -706,18 +682,21 @@ export function useAppMappingState({
     deletingAppRecordsRef.current = true;
     setActionError(null);
     const displayName = resolveWebDomainDisplayName(candidate);
+    const recordedMembers = candidate.memberCandidates?.filter(member => draftWebDomainOverrides[member.normalizedDomain]?.knownDomain);
     setDeletingSessionsExe(candidate.normalizedDomain);
     try {
       const confirmed = await confirm({
         title: UI_TEXT.mapping.deleteWebDomainHistoryTitle,
-        description: UI_TEXT.mapping.deleteWebDomainHistoryDetail(displayName === candidate.normalizedDomain ? displayName : `${displayName} (${candidate.normalizedDomain})`),
+        description: recordedMembers
+          ? UI_TEXT.mapping.deleteWebGroupDetail(recordedMembers.length, recordedMembers.map(member => member.normalizedDomain).join(", "))
+          : UI_TEXT.mapping.deleteWebDomainHistoryDetail(displayName === candidate.normalizedDomain ? displayName : `${displayName} (${candidate.normalizedDomain})`),
         confirmLabel: UI_TEXT.dialog.confirmDanger,
         danger: true,
       });
       if (!confirmed) {
         return;
       }
-      await ClassificationService.deleteObservedWebDomainHistory(candidate.normalizedDomain);
+      await ClassificationService.deleteObservedWebDomainHistory(candidate.normalizedDomain, recordedMembers?.map(member => member.normalizedDomain));
       onSessionsDeleted?.("web");
       try {
         await refreshWebDomainCandidates();
@@ -732,7 +711,7 @@ export function useAppMappingState({
       deletingAppRecordsRef.current = false;
       setDeletingSessionsExe(null);
     }
-  }, [confirm, onSessionsDeleted, refreshWebDomainCandidates, resolveWebDomainDisplayName, UI_TEXT]);
+  }, [confirm, draftWebDomainOverrides, onSessionsDeleted, refreshWebDomainCandidates, resolveWebDomainDisplayName, UI_TEXT]);
 
   const handleTrackingToggle = useCallback((candidate: ObservedAppCandidate, nextTrack: boolean) => {
     const current = draftOverrides[candidate.exeName] ?? null;
@@ -765,7 +744,6 @@ export function useAppMappingState({
     if (!hasUnsavedChanges) return true;
     if (saving) return false;
     setActionError(null);
-    setSaving(true);
     setSaveStatus("saving");
     try {
       const result = await saveAppMappingStateWithDeps({
@@ -796,9 +774,6 @@ export function useAppMappingState({
         onOverridesChanged?.();
       }
       setSaveStatus(result.nextSaveStatus);
-      if (result.nextSaveStatus === "saved") {
-        window.setTimeout(() => setSaveStatus("idle"), 1800);
-      }
       if (!result.accepted && !result.skippedReason) {
         setActionError("save");
         if (result.error) {
@@ -811,10 +786,14 @@ export function useAppMappingState({
       setActionError("save");
       setSaveStatus("idle");
       return false;
-    } finally {
-      setSaving(false);
     }
   }, [draftState, hasUnsavedChanges, onOverridesChanged, savedState, saving, webDomainCandidates]);
+
+  useEffect(() => {
+    if (saveStatus !== "saved") return;
+    const timer = window.setTimeout(() => setSaveStatus("idle"), 1800);
+    return () => window.clearTimeout(timer);
+  }, [saveStatus]);
 
   useEffect(() => {
     onRegisterSaveHandler?.(handleSave);
@@ -886,9 +865,9 @@ export function useAppMappingState({
     appCatalogRefreshError: appCatalog.refreshError,
     appCatalogRetry: appCatalog.retry,
     filteredWebDomainCandidates,
-    webDomainCandidates,
     draftWebDomainOverrides,
     updateWebDomainOverride,
+    updateWebDomainMembers,
     showCategoryDialog,
     setShowCategoryDialog,
     colorFormat,
@@ -908,14 +887,11 @@ export function useAppMappingState({
     resolveWebDomainDisplayName,
     resolveWebDomainColor,
     resolveWebDomainCategory,
-    resolveWebDomainEnabled,
-    resolveWebDomainTitleCaptureEnabled,
     deletingSessionsExe,
     editingNameExe,
     nameDrafts,
     editingWebDomain,
     webNameDrafts,
-    draftOverrides,
     syncNameDraftToPageDraft,
     handleNameBlur,
     handleNameEditCancel,
@@ -928,8 +904,6 @@ export function useAppMappingState({
     handleCategoryAssign,
     handleWebDomainColorAssign,
     handleWebDomainCategoryAssign,
-    handleWebDomainTrackingToggle,
-    handleWebDomainTitleCaptureToggle,
     handleTitleCaptureToggle,
     handleTrackingToggle,
     handleDeleteAllSessions,

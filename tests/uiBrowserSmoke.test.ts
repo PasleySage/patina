@@ -28,11 +28,14 @@ import { runLocaleScenarios } from "./uiBrowserSmoke/localeScenarios.ts";
 import { runWidgetScenarios } from "./uiBrowserSmoke/widgetScenarios.ts";
 import { runScrollRegionScenarios } from "./uiBrowserSmoke/scrollRegionScenarios.ts";
 import { runTypographyScenarios } from "./uiBrowserSmoke/typographyScenarios.ts";
+import { startBrowserCoverage } from "../scripts/coverage/browser-coverage.ts";
 
 let passed = 0;
+let coverage: Awaited<ReturnType<typeof startBrowserCoverage>> | null = null;
 
 async function runTest(name: string, fn: () => Promise<void> | void) {
   await fn();
+  await coverage?.flush();
   passed += 1;
   console.log(`PASS ${name}`);
 }
@@ -51,6 +54,7 @@ const scrollRegionOnly = process.argv.includes("--scroll-region-only");
 const widgetOnly = process.argv.includes("--widget-only");
 const classificationOnly = process.argv.includes("--classification-only");
 const historyWebTimelineTests = new Set([
+  "history title details stay readable at narrow and default widths",
   "anonymous timeline dots fill the visible bar instead of the hit area",
   "history excludes hidden domains from rows and favicon requests, then restores retained history",
   "history timeline cycles app category and web while zoom stays synchronized",
@@ -91,6 +95,9 @@ try {
     flatten: true,
   }) as { sessionId: string };
   sessionId = attachedTarget.sessionId;
+  if (process.env.PATINA_BROWSER_COVERAGE_DIR) {
+    coverage = await startBrowserCoverage(client, sessionId, process.env.PATINA_BROWSER_COVERAGE_DIR);
+  }
 
   client.onMessage((message) => {
     if (message.sessionId !== sessionId) {
@@ -153,7 +160,11 @@ try {
 
   await runStartupScenarios(smokeContext);
 
-  if (process.argv.includes("--typography-only")) {
+  if (process.argv.includes("--anonymous-only")) {
+    await runDashboardScenarios({ ...smokeContext, runTest: async (name, fn) => {
+      if (name.startsWith("anonymous activity ranks once")) await runTest(name, fn);
+    } });
+  } else if (process.argv.includes("--typography-only")) {
     await runTypographyScenarios(smokeContext);
   } else if (process.argv.includes("--locale-only")) {
     await runLocaleScenarios(smokeContext);
@@ -256,6 +267,11 @@ try {
   }
   primaryError = new AggregateError(diagnostics, "Browser scenario failed");
 } finally {
+  try {
+    await coverage?.finish(passed, primaryError !== null);
+  } catch (error) {
+    cleanupErrors.push(error);
+  }
   try {
     client?.close();
   } catch (error) {

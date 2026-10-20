@@ -43,6 +43,7 @@ import {
   type DayDistributionMode,
 } from "../services/historyLayoutPreferenceStorage.ts";
 import {
+  buildWebDomainIconMap,
   buildWebDomainDistribution,
   buildWebTimelineItems,
 } from "../services/historyWebActivityViewModel.ts";
@@ -236,10 +237,8 @@ export default function History({
     rawDaySessions,
     rawDayAggregateSessions,
     visibleDayWebSegments,
-    rawWeeklySessions,
     rawWeeklyAggregateSessions,
-    aggregateIncludesExactFacts,
-    setNowMs,
+    hasActiveSession,
     snapshotIcons,
     requestedDateKey,
     visibleDateKey,
@@ -266,7 +265,6 @@ export default function History({
 
     for (const session of [
       ...rawDaySessions,
-      ...rawWeeklySessions,
       ...rawDayAggregateSessions,
       ...rawWeeklyAggregateSessions,
     ]) {
@@ -278,7 +276,7 @@ export default function History({
     }
 
     return result;
-  }, [rawDayAggregateSessions, rawDaySessions, rawWeeklyAggregateSessions, rawWeeklySessions]);
+  }, [rawDayAggregateSessions, rawDaySessions, rawWeeklyAggregateSessions]);
   const baseHistoryIcons = useMemo(() => ({
     ...icons,
     ...snapshotIcons,
@@ -294,19 +292,8 @@ export default function History({
   const iconThemeColors = useIconThemeColors(historyIcons);
   const webDomainIcons = useMemo(() => {
     if (!webActivityEnabled) return {};
-
-    const next: Record<string, string> = { ...webDomainFavicons };
-    for (const segment of visibleDayWebSegments) {
-      const faviconUrl = segment.faviconUrl?.trim();
-      if (!faviconUrl) continue;
-
-      const current = next[segment.normalizedDomain];
-      if (!current || faviconUrl.startsWith("data:")) {
-        next[segment.normalizedDomain] = faviconUrl;
-      }
-    }
-    return next;
-  }, [visibleDayWebSegments, webActivityEnabled, webDomainFavicons]);
+    return buildWebDomainIconMap(visibleDayWebSegments, webDomainOverrides, webDomainFavicons);
+  }, [visibleDayWebSegments, webActivityEnabled, webDomainFavicons, webDomainOverrides]);
   const webDomainIconThemeColors = useIconThemeColors(webDomainIcons);
   const webSnapshotReady = visibleDayWebSegments.length > 0
     || contentState === "ready"
@@ -481,24 +468,23 @@ export default function History({
   useEffect(() => {
     const hasLiveWebSegment = webActivityEnabled
       && visibleDayWebSegments.some((segment) => segment.endTime === null);
-    const hasLiveSession = rawDaySessions.some((session) => session.endTime === null)
-      || rawWeeklySessions.some((session) => session.endTime === null)
+    const hasLiveSession = hasActiveSession
       || hasLiveWebSegment;
 
     if (!refreshEnabled || !hasLiveSession || trackerHealth.status !== "healthy") {
       return;
     }
 
-    // Keep live durations moving locally so the UI stays fresh without
-    // refetching the selected day and weekly range on every timer tick.
+    // Rust owns aggregate time bounds, including the current week when a past
+    // day is selected. Refresh that snapshot instead of extrapolating totals.
     const timer = window.setInterval(() => {
-      setNowMs(Date.now());
+      retry();
     }, refreshIntervalSecs * 1000);
 
     return () => {
       window.clearInterval(timer);
     };
-  }, [rawDaySessions, rawWeeklySessions, refreshEnabled, refreshIntervalSecs, setNowMs, trackerHealth.status, visibleDayWebSegments, webActivityEnabled]);
+  }, [hasActiveSession, refreshEnabled, refreshIntervalSecs, retry, trackerHealth.status, visibleDayWebSegments, webActivityEnabled]);
 
   const changeDate = (delta: number) => {
     const nextDate = addLocalDays(selectedDate, delta);
@@ -609,17 +595,15 @@ export default function History({
   const historyView = useMemo(
     () => (void mappingVersion, buildHistoryReadModel({
       daySessions: rawDaySessions,
-      weeklySessions: rawWeeklySessions,
       dayAggregateSessions: rawDayAggregateSessions,
       weeklyAggregateSessions: rawWeeklyAggregateSessions,
-      aggregateIncludesExactFacts,
       selectedDate: presentedDate,
       nowMs,
       trackerHealth,
       minSessionSecs,
       mergeThresholdSecs,
     })),
-    [aggregateIncludesExactFacts, mappingVersion, mergeThresholdSecs, minSessionSecs, nowMs, presentedDate, rawDayAggregateSessions, rawDaySessions, rawWeeklyAggregateSessions, rawWeeklySessions, trackerHealth],
+    [mappingVersion, mergeThresholdSecs, minSessionSecs, nowMs, presentedDate, rawDayAggregateSessions, rawDaySessions, rawWeeklyAggregateSessions, trackerHealth],
   );
   const {
     compiledSessions,

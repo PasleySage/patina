@@ -624,6 +624,7 @@ export interface UiText {
     "deleteFailed": string;
     "deleteWebDomainHistoryDetail": (label: string) => string;
     "deleteWebDomainHistoryTitle": string;
+    "deleteWebGroupDetail": (count: number, domains: string) => string;
     "deleteWebRecords": string;
     "disableTitleCapture": string;
     "disableTracking": string;
@@ -648,6 +649,7 @@ export interface UiText {
     "loading": string;
     "mainApp": string;
     "mainWebDomain": string;
+    "mergeWebDomain": (domain: string) => string;
     "noStats": string;
     "objectModeApp": string;
     "objectModeWeb": string;
@@ -685,6 +687,7 @@ export interface UiText {
     "unlinkApp": string;
     "unsaved": string;
     "webEmptyState": string;
+    "webIndependent": string;
     "webLinks": string;
     "webSearchPlaceholder": string;
   };
