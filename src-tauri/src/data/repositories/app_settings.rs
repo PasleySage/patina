@@ -824,7 +824,12 @@ mod tests {
             // A hand-edited or corrupted row must still yield a playable chime rather
             // than a volume the audio path cannot honor or a tone with no sample.
             let settings = load_chime_settings(&pool).await.unwrap();
-            assert_eq!(settings.volume, 100);
+            assert_eq!(
+                settings.volume,
+                crate::domain::settings::CHIME_VOLUME_MAX,
+                "an out-of-range stored volume must clamp to the ceiling, not to a \
+                 hardcoded number that goes stale when the range changes"
+            );
             assert_eq!(settings.tone, "clear");
         });
     }

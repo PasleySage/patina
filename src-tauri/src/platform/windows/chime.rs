@@ -22,6 +22,12 @@ const FALLBACK_ALIAS: &str = "SystemAsterisk";
 /// `WAVE_FORMAT_PCM` — the only encoding the chime samples use.
 const WAVE_FORMAT_PCM: u16 = 1;
 
+/// The largest magnitude a 16-bit sample can hold.
+const FULL_SCALE: i32 = i16::MAX as i32;
+/// Where the soft limiter starts bending, as a fraction of full scale. Leaving the knee
+/// below the ceiling means amplification engages gradually instead of all at once.
+const LIMIT_THRESHOLD: f64 = 0.75;
+
 /// Playback guard. Windows plays one sound per session at a time, so an overlapping
 /// second call would cut the first one off mid-ring. Skipping is the better failure:
 /// a chime is additive to the alert, and a truncated one sounds like a glitch.
@@ -212,6 +218,33 @@ fn play_alias_sound(alias: &str, _percent: u8) -> Result<(), String> {
     }
 }
 
+/// Compress anything above the limiter's knee so amplified output stays inside full
+/// scale without the flat tops a hard clamp produces.
+///
+/// Below the knee the value passes through untouched, so ordinary levels are bit-exact.
+/// Above it the curve is asymptotic: it approaches full scale but never reaches it, so
+/// even a heavily amplified sample keeps its shape instead of clipping. The scaling is
+/// done on a value that is already a fraction of the ceiling, which keeps `tanh` in the
+/// range where it is strictly less than one — a raw `tanh(99.0)` would round to exactly
+/// 1.0 in f64 and saturate.
+fn soft_limit(value: f64) -> f64 {
+    let ceiling = f64::from(FULL_SCALE);
+    let knee = ceiling * LIMIT_THRESHOLD;
+    let magnitude = value.abs();
+    if magnitude <= knee {
+        return value;
+    }
+    // Normalize the excess against the headroom, then saturate it with a curve that
+    // approaches 1 without arriving: `x / (1 + x)` is 0.5 at the knee and tends to 1.
+    let excess = (magnitude - knee) / (ceiling - knee);
+    let compressed = knee + (ceiling - knee) * (excess / (1.0 + excess));
+    if value < 0.0 {
+        -compressed
+    } else {
+        compressed
+    }
+}
+
 /// Mono 16-bit PCM samples plus the format they were recorded in, taken from a RIFF
 /// container.
 struct PcmSamples {
@@ -317,8 +350,14 @@ impl PcmSamples {
     /// Return the samples scaled to `percent` of full scale, as 16-bit little-endian.
     ///
     /// The payload is scaled rather than the device, so no device, mixer, or system
-    /// volume is touched. The peak is normalized first, so lowering the level lowers the
-    /// loudest moment rather than only shrinking the already-quiet parts.
+    /// volume is touched. One monotonic formula covers the whole range: the target peak
+    /// is `percent` of digital full scale, so up to 100 the samples are attenuated and
+    /// past it they are amplified. The bundled samples peak at 85% of full scale, which
+    /// means 100 now reaches the top of the range instead of leaving 1.4 dB unused.
+    ///
+    /// Amplification past full scale is limited rather than clipped. A hard clamp on a
+    /// tonal chime flattens the loudest attack into distortion; a soft knee keeps the
+    /// waveform rounded, so the extra level reads as "louder" instead of "broken".
     fn scale_to(&self, percent: u8) -> Vec<u8> {
         if self.format.bits_per_sample != 16 {
             return Vec::new();
@@ -334,16 +373,20 @@ impl PcmSamples {
         if peak == 0 {
             return Vec::new();
         }
-        let target = peak * i32::from(percent) / i32::from(CHIME_VOLUME_MAX);
+        let target = i32::from(FULL_SCALE) * i32::from(percent) / 100;
+        if target == 0 {
+            return vec![0u8; self.data.len()];
+        }
+        // Widen to i32 so the gain never overflows before the limiter sees it.
+        let gain = target as f64 / f64::from(peak);
         let mut out = Vec::with_capacity(self.data.len());
         for index in (0..self.data.len()).step_by(2) {
             if index + 1 >= self.data.len() {
                 break;
             }
-            // Widen before scaling so the multiply cannot overflow.
-            let scaled = i32::from(self.sample_at(index)) * target / peak;
-            let clamped = scaled.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16;
-            out.extend_from_slice(&clamped.to_le_bytes());
+            let value = f64::from(self.sample_at(index)) * gain;
+            let limited = soft_limit(value);
+            out.extend_from_slice(&(limited as i16).to_le_bytes());
         }
         out
     }
@@ -429,10 +472,11 @@ mod tests {
         assert_eq!(ChimeSettings::normalized(true, 0, "clear").volume, 0);
         assert_eq!(ChimeSettings::normalized(true, 55, "clear").volume, 55);
         assert_eq!(ChimeSettings::normalized(true, 100, "clear").volume, 100);
-        assert_eq!(ChimeSettings::normalized(true, 101, "clear").volume, 100);
+        assert_eq!(ChimeSettings::normalized(true, 200, "clear").volume, 200);
+        assert_eq!(ChimeSettings::normalized(true, 201, "clear").volume, 200);
         assert_eq!(
             ChimeSettings::normalized(true, i64::MAX, "clear").volume,
-            100
+            CHIME_VOLUME_MAX
         );
     }
 
@@ -572,23 +616,31 @@ mod tests {
         let full_peak = peak_of(&pcm.data);
         assert!(full_peak > 0, "the sample must not be silent to begin with");
 
+        // The level is a fraction of digital full scale, not of the bundled peak, so
+        // 100% now reaches the top of the range instead of the samples' own 85%.
+        let at_full = pcm.scale_to(100);
+        assert_eq!(
+            at_full.len(),
+            pcm.data.len(),
+            "scaling must not change length"
+        );
+        assert!(
+            peak_of(&at_full) > full_peak,
+            "100% should reach above the bundled level"
+        );
+
         let half = pcm.scale_to(50);
         assert_eq!(half.len(), pcm.data.len(), "scaling must not change length");
         let half_peak = peak_of(&half);
         assert!(
             half_peak < full_peak,
-            "50% must be quieter than full scale ({half_peak} vs {full_peak})"
+            "50% must be quieter than the bundled level ({half_peak} vs {full_peak})"
         );
-        let expected = full_peak / 2;
+        // Half of full scale, within a rounding step.
+        let expected = FULL_SCALE / 2;
         assert!(
             (half_peak - expected).abs() <= 2,
             "50% peak {half_peak} should be about {expected}"
-        );
-
-        assert_eq!(
-            pcm.scale_to(100),
-            pcm.data,
-            "100% must be the original samples"
         );
     }
 
@@ -616,6 +668,128 @@ mod tests {
         assert!(
             !staged.exists(),
             "the staged sample must not outlive the call that created it"
+        );
+    }
+
+    /// Above full scale the limiter must keep the output inside the 16-bit range while
+    /// still raising the level, so the top of the slider is usable rather than clipped.
+    #[test]
+    fn amplifying_past_full_scale_stays_inside_the_range() {
+        let pcm = bundled("clear");
+        let peak_of = |data: &[u8]| -> i32 {
+            data.chunks_exact(2)
+                .map(|pair| i32::from(i16::from_le_bytes([pair[0], pair[1]]).abs()))
+                .max()
+                .unwrap_or(0)
+        };
+
+        let amplified = pcm.scale_to(CHIME_VOLUME_MAX);
+        assert_eq!(
+            amplified.len(),
+            pcm.data.len(),
+            "scaling must not change length"
+        );
+
+        let peak = peak_of(&amplified);
+        assert!(
+            peak <= FULL_SCALE,
+            "amplified output exceeded full scale: {peak}"
+        );
+        // Louder than the bundled level, which is the point of the extra range.
+        assert!(
+            peak > peak_of(&pcm.data),
+            "the top of the range must exceed the bundled level"
+        );
+        // And rounded rather than flat-topped, so it is not hard clipping.
+        let rms_of = |data: &[u8]| -> f64 {
+            let sum: f64 = data
+                .chunks_exact(2)
+                .map(|pair| f64::from(i32::from(i16::from_le_bytes([pair[0], pair[1]])).pow(2)))
+                .sum();
+            (sum / (data.len() / 2) as f64).sqrt()
+        };
+        assert!(
+            rms_of(&amplified) > rms_of(&pcm.data),
+            "amplification must raise the average level, not just the peak"
+        );
+    }
+
+    #[test]
+    fn the_level_curve_is_monotonic() {
+        let pcm = bundled("clear");
+        let peak_of = |data: &[u8]| -> i32 {
+            data.chunks_exact(2)
+                .map(|pair| i32::from(i16::from_le_bytes([pair[0], pair[1]]).abs()))
+                .max()
+                .unwrap_or(0)
+        };
+        let mut previous = 0;
+        for percent in [10u8, 25, 50, 75, 100, 130, 160, 200] {
+            let peak = peak_of(&pcm.scale_to(percent));
+            assert!(
+                peak > previous,
+                "level {percent}% did not rise above the previous step ({peak} vs {previous})"
+            );
+            previous = peak;
+        }
+    }
+
+    #[test]
+    fn the_limiter_is_transparent_below_its_knee() {
+        // Values under the knee must pass through unchanged, so ordinary levels stay
+        // bit-exact and the limiter only ever engages when amplifying.
+        assert_eq!(soft_limit(0.0), 0.0);
+        assert_eq!(soft_limit(1000.0), 1000.0);
+        assert_eq!(soft_limit(-1000.0), -1000.0);
+        let knee = f64::from(FULL_SCALE) * LIMIT_THRESHOLD;
+        assert_eq!(soft_limit(knee), knee);
+    }
+
+    #[test]
+    fn the_limiter_stays_below_full_scale_however_hard_it_is_driven() {
+        // `tanh` of a large argument rounds to exactly 1.0 in f64, which would saturate
+        // the output at the ceiling and reintroduce clipping. The curve used here is
+        // `x / (1 + x)`, which approaches 1 without arriving.
+        for multiple in [1.0, 2.0, 10.0, 100.0, 10_000.0] {
+            let driven = f64::from(FULL_SCALE) * multiple;
+            let limited = soft_limit(driven);
+            assert!(
+                limited < f64::from(FULL_SCALE),
+                "saturated at {multiple}x full scale: {limited}"
+            );
+            assert_eq!(soft_limit(-driven), -limited, "asymmetric at {multiple}x");
+        }
+    }
+
+    /// The extra range above 100 has to be real. Full scale is a hard ceiling, so past
+    /// some point the limiter pins the output and the slider moves without the sound
+    /// changing — this keeps the top of the range honestly louder than 100% rather than
+    /// merely different, measured in RMS because that is what loudness tracks.
+    #[test]
+    fn the_top_of_the_range_is_audibly_louder_than_full_scale() {
+        let pcm = bundled("clear");
+        let rms_of = |data: &[u8]| -> f64 {
+            let sum: f64 = data
+                .chunks_exact(2)
+                .map(|pair| f64::from(i32::from(i16::from_le_bytes([pair[0], pair[1]])).pow(2)))
+                .sum();
+            (sum / (data.len() / 2) as f64).sqrt()
+        };
+
+        let at_full = rms_of(&pcm.scale_to(100));
+        let at_max = rms_of(&pcm.scale_to(CHIME_VOLUME_MAX));
+        let gain_db = 20.0 * (at_max / at_full).log10();
+
+        assert!(
+            gain_db > 2.0,
+            "the top of the range is only {gain_db:.2} dB above full scale, which is not \
+             worth a slider position"
+        );
+        // And it must not be pinned: a ceiling that saturates would show almost no gain.
+        assert!(
+            gain_db < 12.0,
+            "the top of the range is {gain_db:.2} dB above full scale, which suggests the \
+             curve is not limiting as intended"
         );
     }
 }

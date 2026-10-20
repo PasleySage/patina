@@ -7,7 +7,7 @@ import QuietStepperSlider from "../../../shared/components/QuietStepperSlider";
 import QuietSwitch from "../../../shared/components/QuietSwitch";
 import SettingsPanelHeader from "./SettingsPanelHeader";
 import { SettingsPreferenceGroup, SettingsPreferenceRow } from "./SettingsPreferenceLayout";
-import { CHIME_TONE_OPTIONS, type ChimeTone } from "../services/chimeSettingsService.ts";
+import { CHIME_TONE_OPTIONS, CHIME_VOLUME_MAX, CHIME_VOLUME_MIN, type ChimeTone } from "../services/chimeSettingsService.ts";
 
 type SettingsChimePanelProps = {
   enabled: boolean;
@@ -64,8 +64,8 @@ export default function SettingsChimePanel({
               <QuietStepperSlider
                 ariaLabel={UI_TEXT.settings.chimeVolumeLabel}
                 value={volume}
-                min={0}
-                max={100}
+                min={CHIME_VOLUME_MIN}
+                max={CHIME_VOLUME_MAX}
                 step={5}
                 displayValue={`${volume}%`}
                 decreaseAriaLabel={UI_TEXT.settings.chimeVolumeDecrease}

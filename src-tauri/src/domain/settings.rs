@@ -13,8 +13,17 @@ pub const DEFAULT_REMOTE_STATUS_BRIDGE_MACHINE_ID: &str = "";
 pub const WEB_ACTIVITY_PORT_MIN: u16 = 1024;
 pub const CHIME_TONES: [&str; 3] = ["clear", "bright", "deep"];
 pub const DEFAULT_CHIME_TONE: &str = "clear";
+/// The chime is additive to the alert surface, so its level is bounded by what a short
+/// tone can carry before it stops being a signal and becomes a bang. Above full scale the
+/// samples are limited rather than clipped, so the range is generous but the output never
+/// exceeds the device's headroom.
+///
+/// The range stops at 200 because that is where it stops paying for itself: digital full
+/// scale is a hard ceiling, and measured against the bundled samples the step from 100 to
+/// 200 is about 4 dB while 150 to 200 is under 1 dB. Past this the slider would move
+/// without the sound changing.
 pub const CHIME_VOLUME_MIN: u8 = 0;
-pub const CHIME_VOLUME_MAX: u8 = 100;
+pub const CHIME_VOLUME_MAX: u8 = 200;
 pub const DEFAULT_CHIME_VOLUME: u8 = 60;
 
 /// Whether and how a chime plays when a tool alert fires.

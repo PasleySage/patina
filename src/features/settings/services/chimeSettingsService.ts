@@ -4,7 +4,10 @@ export const CHIME_TONE_OPTIONS = ["clear", "bright", "deep"] as const;
 export type ChimeTone = (typeof CHIME_TONE_OPTIONS)[number];
 
 export const CHIME_VOLUME_MIN = 0;
-export const CHIME_VOLUME_MAX = 100;
+/// Above 100 the samples are amplified and then limited, so the chime can be pushed past
+/// the bundled level without clipping. Kept in step with the Rust constant, which also
+/// documents where the range stops paying for itself.
+export const CHIME_VOLUME_MAX = 200;
 
 export type ChimeSettings = {
   enabled: boolean;
