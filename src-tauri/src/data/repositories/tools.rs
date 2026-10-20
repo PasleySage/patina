@@ -452,13 +452,27 @@ pub async fn skip_pomodoro_phase(
     let Some(run) = fetch_latest_pomodoro(&mut *tx).await? else {
         return Ok(None);
     };
-    let outcome = advance_pomodoro_phase(&mut tx, run, date_key, now_ms, false, false).await?;
+    let outcome = advance_pomodoro_phase(
+        &mut tx,
+        run,
+        date_key,
+        now_ms,
+        false,
+        NextPhaseAction::Pause,
+    )
+    .await?;
     tx.commit()
         .await
         .map_err(|error| format!("failed to commit pomodoro transaction: {error}"))?;
     Ok(outcome)
 }
 
+/// Account for a phase that ran out and hold the run until the user confirms.
+///
+/// The focus completion is counted here, because the work was done whether or not the
+/// user acknowledges it. What is withheld is the *start* of the next phase: the run parks
+/// in `AwaitingConfirm`, which `is_phase_due` does not consider due, so the tick cannot
+/// re-fire this and the run stays put until the user acts.
 pub async fn complete_due_pomodoro_phase(
     tx: &mut Transaction<'_, Sqlite>,
     date_key: &str,
@@ -471,7 +485,69 @@ pub async fn complete_due_pomodoro_phase(
         return Ok(None);
     }
 
-    advance_pomodoro_phase(tx, run, date_key, now_ms, true, true).await
+    advance_pomodoro_phase(
+        tx,
+        run,
+        date_key,
+        now_ms,
+        true,
+        NextPhaseAction::AwaitConfirmation,
+    )
+    .await
+}
+
+/// Start the next phase after the user confirms.
+///
+/// This only flips the status and restarts the clock; the phase was already chosen and
+/// counted when it ran out, so confirming never double-counts a pomodoro.
+pub async fn confirm_pomodoro_phase(
+    pool: &Pool<Sqlite>,
+    now_ms: i64,
+) -> Result<Option<CompletedPomodoroNotification>, String> {
+    let Some(run) = fetch_latest_pomodoro(pool).await? else {
+        return Ok(None);
+    };
+    if run.status != PomodoroStatus::AwaitingConfirm {
+        return Ok(None);
+    }
+
+    let remaining_ms = match run.phase {
+        PomodoroPhase::Focus => run.focus_ms,
+        PomodoroPhase::ShortBreak => run.short_break_ms,
+        PomodoroPhase::LongBreak => run.long_break_ms,
+    };
+
+    sqlx::query(
+        "UPDATE tool_pomodoro_runs
+         SET status = ?,
+             phase_started_at = ?,
+             phase_paused_at = NULL,
+             phase_remaining_ms = ?,
+             updated_at = ?
+         WHERE id = ?",
+    )
+    .bind(PomodoroStatus::Running.as_str())
+    .bind(now_ms)
+    .bind(remaining_ms)
+    .bind(now_ms)
+    .bind(run.id)
+    .execute(pool)
+    .await
+    .map_err(|error| format!("failed to confirm pomodoro phase: {error}"))?;
+
+    // No notification: the alert for this transition already fired when the phase ended.
+    Ok(None)
+}
+
+/// What a run does once a phase has been accounted for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum NextPhaseAction {
+    /// Start the next phase immediately.
+    Start,
+    /// Hold at the next phase, paused, until the user resumes.
+    Pause,
+    /// Stop and wait for the user to confirm before the next phase starts.
+    AwaitConfirmation,
 }
 
 async fn advance_pomodoro_phase(
@@ -480,7 +556,7 @@ async fn advance_pomodoro_phase(
     date_key: &str,
     now_ms: i64,
     count_focus_completion: bool,
-    start_next_phase: bool,
+    action: NextPhaseAction,
 ) -> Result<Option<CompletedPomodoroNotification>, String> {
     if run.status == PomodoroStatus::Idle || run.status == PomodoroStatus::Completed {
         return Ok(None);
@@ -508,13 +584,13 @@ async fn advance_pomodoro_phase(
         PomodoroPhase::LongBreak => run.long_break_ms,
     };
 
-    let next_status = if start_next_phase {
-        PomodoroStatus::Running
-    } else {
-        PomodoroStatus::Paused
+    let next_status = match action {
+        NextPhaseAction::Start => PomodoroStatus::Running,
+        NextPhaseAction::Pause => PomodoroStatus::Paused,
+        NextPhaseAction::AwaitConfirmation => PomodoroStatus::AwaitingConfirm,
     };
-    let next_started_at = start_next_phase.then_some(now_ms);
-    let next_paused_at = (!start_next_phase).then_some(now_ms);
+    let next_started_at = (action == NextPhaseAction::Start).then_some(now_ms);
+    let next_paused_at = (action != NextPhaseAction::Start).then_some(now_ms);
 
     sqlx::query(
         "UPDATE tool_pomodoro_runs
@@ -1341,13 +1417,15 @@ mod tests {
                 .await
                 .unwrap();
 
+            // The focus is counted the moment it runs out — the work was done whether or
+            // not the user acknowledges it — but the break does not start until they do.
             assert!(completed.is_some());
             assert_eq!(snapshot.today_completed_pomodoros, 1);
             let run = snapshot.current_pomodoro.unwrap();
             assert_eq!(run.phase, PomodoroPhase::ShortBreak);
-            assert_eq!(run.status, PomodoroStatus::Running);
-            assert_eq!(run.phase_started_at, Some(2_100));
-            assert_eq!(run.phase_paused_at, None);
+            assert_eq!(run.status, PomodoroStatus::AwaitingConfirm);
+            assert_eq!(run.phase_started_at, None);
+            assert_eq!(run.phase_paused_at, Some(2_100));
         });
     }
 
@@ -1395,6 +1473,141 @@ mod tests {
             assert_eq!(run.status, PomodoroStatus::Paused);
             assert_eq!(run.phase_started_at, None);
             assert_eq!(run.phase_paused_at, Some(1_500));
+        });
+    }
+
+    /// A phase that runs out must stop and wait, not roll into the next one. This is the
+    /// behaviour the confirmation gate exists for: without it a pomodoro silently
+    /// becomes a break and the user loses the chance to decide when to continue.
+    #[test]
+    fn an_expired_phase_waits_for_confirmation_instead_of_starting_the_next_one() {
+        tauri::async_runtime::block_on(async {
+            let pool = setup_test_db().await;
+            start_pomodoro(&pool, 1_000, 2_000, 3_000, 4, 1_000)
+                .await
+                .unwrap();
+
+            let notification = complete_due_pomodoro_phase(&pool, "2026-06-07", 2_100)
+                .await
+                .unwrap()
+                .expect("the phase was due, so it must be accounted for");
+            assert_eq!(notification.completed_phase, PomodoroPhase::Focus);
+            assert_eq!(notification.next_phase, PomodoroPhase::ShortBreak);
+
+            let run = fetch_latest_pomodoro(&pool).await.unwrap().unwrap();
+            assert_eq!(
+                run.status,
+                PomodoroStatus::AwaitingConfirm,
+                "an expired phase must park until the user confirms"
+            );
+            assert_eq!(run.phase, PomodoroPhase::ShortBreak);
+            // The clock must not be running, or the next phase would burn down while
+            // the user is still deciding.
+            assert_eq!(run.phase_started_at, None);
+            assert_eq!(run.phase_remaining_ms, Some(2_000));
+            // The focus was completed, so it is counted whether or not the user acts.
+            assert_eq!(run.completed_focus_count, 1);
+        });
+    }
+
+    /// The gate has to hold on its own: a later tick must not re-fire the alert or move
+    /// the run forward, otherwise the confirmation would be decorative.
+    #[test]
+    fn a_run_awaiting_confirmation_is_not_due_again() {
+        tauri::async_runtime::block_on(async {
+            let pool = setup_test_db().await;
+            start_pomodoro(&pool, 1_000, 2_000, 3_000, 4, 1_000)
+                .await
+                .unwrap();
+            complete_due_pomodoro_phase(&pool, "2026-06-07", 2_100)
+                .await
+                .unwrap();
+
+            let again = complete_due_pomodoro_phase(&pool, "2026-06-07", 9_000)
+                .await
+                .unwrap();
+            assert!(
+                again.is_none(),
+                "a run waiting for confirmation must not be re-completed by a later tick"
+            );
+
+            let run = fetch_latest_pomodoro(&pool).await.unwrap().unwrap();
+            assert_eq!(run.status, PomodoroStatus::AwaitingConfirm);
+            assert_eq!(run.phase, PomodoroPhase::ShortBreak);
+        });
+    }
+
+    /// Confirming starts the next phase and does not count the focus a second time.
+    #[test]
+    fn confirming_starts_the_next_phase_without_counting_it_twice() {
+        tauri::async_runtime::block_on(async {
+            let pool = setup_test_db().await;
+            start_pomodoro(&pool, 1_000, 2_000, 3_000, 4, 1_000)
+                .await
+                .unwrap();
+            complete_due_pomodoro_phase(&pool, "2026-06-07", 2_100)
+                .await
+                .unwrap();
+
+            confirm_pomodoro_phase(&pool, 5_000).await.unwrap();
+
+            let run = fetch_latest_pomodoro(&pool).await.unwrap().unwrap();
+            assert_eq!(run.status, PomodoroStatus::Running);
+            assert_eq!(run.phase, PomodoroPhase::ShortBreak);
+            assert_eq!(run.phase_started_at, Some(5_000));
+            assert_eq!(run.completed_focus_count, 1, "confirming must not re-count");
+
+            // And the phase now runs down again, so the cycle continues normally.
+            assert!(run.is_phase_due(7_000));
+        });
+    }
+
+    /// Confirming is only meaningful while waiting; calling it on a running or idle run
+    /// must be a no-op rather than restarting a phase that is already going.
+    #[test]
+    fn confirming_a_run_that_is_not_waiting_does_nothing() {
+        tauri::async_runtime::block_on(async {
+            let pool = setup_test_db().await;
+            start_pomodoro(&pool, 1_000, 2_000, 3_000, 4, 1_000)
+                .await
+                .unwrap();
+
+            confirm_pomodoro_phase(&pool, 1_500).await.unwrap();
+            let run = fetch_latest_pomodoro(&pool).await.unwrap().unwrap();
+            assert_eq!(
+                run.status,
+                PomodoroStatus::Running,
+                "a running phase must not be disturbed"
+            );
+            assert_eq!(run.phase_started_at, Some(1_000));
+        });
+    }
+
+    /// A break that expires must also wait, so the same gate covers every transition.
+    #[test]
+    fn an_expired_break_also_waits_for_confirmation() {
+        tauri::async_runtime::block_on(async {
+            let pool = setup_test_db().await;
+            start_pomodoro(&pool, 1_000, 2_000, 3_000, 4, 1_000)
+                .await
+                .unwrap();
+            complete_due_pomodoro_phase(&pool, "2026-06-07", 2_100)
+                .await
+                .unwrap();
+            confirm_pomodoro_phase(&pool, 2_200).await.unwrap();
+
+            let notification = complete_due_pomodoro_phase(&pool, "2026-06-07", 4_300)
+                .await
+                .unwrap()
+                .expect("the break was due");
+            assert_eq!(notification.completed_phase, PomodoroPhase::ShortBreak);
+            assert_eq!(notification.next_phase, PomodoroPhase::Focus);
+
+            let run = fetch_latest_pomodoro(&pool).await.unwrap().unwrap();
+            assert_eq!(run.status, PomodoroStatus::AwaitingConfirm);
+            assert_eq!(run.phase, PomodoroPhase::Focus);
+            // A break must not count as a completed focus.
+            assert_eq!(run.completed_focus_count, 1);
         });
     }
 }

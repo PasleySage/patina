@@ -120,7 +120,7 @@ const REMINDER_STATUSES = new Set(["scheduled", "fired", "cancelled"]);
 const TIMER_MODES = new Set(["stopwatch", "countdown"]);
 const TIMER_STATUSES = new Set(["idle", "running", "paused", "completed"]);
 const POMODORO_PHASES = new Set(["focus", "short_break", "long_break"]);
-const POMODORO_STATUSES = new Set(["idle", "running", "paused", "completed"]);
+const POMODORO_STATUSES = new Set(["idle", "running", "paused", "awaiting_confirm", "completed"]);
 const TOOL_ALERT_KINDS = new Set(["reminder", "countdown", "pomodoro", "activity_reminder"]);
 const ACTIVITY_REMINDER_SUSPENSION_REASONS = new Set([
   "source_disabled",

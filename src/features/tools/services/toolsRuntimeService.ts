@@ -2,6 +2,7 @@ import { parseCommandError } from "../../../platform/persistence/commandError.ts
 import {
   addTimerLap,
   cancelReminder,
+  confirmPomodoroPhase,
   createActivityReminderRule,
   createReminder,
   disableActivityReminderRule,
@@ -27,6 +28,7 @@ export const ToolsRuntimeService = {
   },
   addTimerLap,
   cancelReminder,
+  confirmPomodoroPhase,
   createActivityReminderRule,
   createReminder,
   disableActivityReminderRule,

@@ -300,6 +300,10 @@ export function useToolsPageState({
     [runAction],
   );
   const resetPomodoro = useCallback(() => runAction("reset-pomodoro", ToolsRuntimeService.resetPomodoro), [runAction]);
+  const confirmPomodoroPhase = useCallback(
+    () => runAction("confirm-pomodoro-phase", ToolsRuntimeService.confirmPomodoroPhase),
+    [runAction],
+  );
 
   return {
     hasSnapshot,
@@ -332,6 +336,7 @@ export function useToolsPageState({
     resumePomodoro,
     skipPomodoroPhase,
     resetPomodoro,
+    confirmPomodoroPhase,
     retryLoad: refreshSnapshot,
   };
 }

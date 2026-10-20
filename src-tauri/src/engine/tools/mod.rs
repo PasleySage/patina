@@ -159,6 +159,7 @@ pub enum ToolsMutation {
     ResumePomodoro,
     SkipPomodoroPhase,
     ResetPomodoro,
+    ConfirmPomodoroPhase,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -397,6 +398,14 @@ pub async fn reset_pomodoro<R: Runtime>(
     store: &impl ToolsStore,
 ) -> Result<ToolsRuntimeSnapshot, String> {
     apply_mutation_and_refresh(app, store, ToolsMutation::ResetPomodoro, now_ms()).await
+}
+
+/// Start the next phase once the user has confirmed a completed one.
+pub async fn confirm_pomodoro_phase<R: Runtime>(
+    app: &AppHandle<R>,
+    store: &impl ToolsStore,
+) -> Result<ToolsRuntimeSnapshot, String> {
+    apply_mutation_and_refresh(app, store, ToolsMutation::ConfirmPomodoroPhase, now_ms()).await
 }
 
 async fn wait_for_next_tools_wake<R: Runtime>(app: &AppHandle<R>, delay: Duration) {

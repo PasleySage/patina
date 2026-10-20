@@ -128,3 +128,9 @@ pub(crate) async fn reset_pomodoro<R: Runtime>(
 ) -> Result<ToolsRuntimeSnapshot, String> {
     tools::reset_pomodoro(app, &store(app)).await
 }
+
+pub(crate) async fn confirm_pomodoro_phase<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Result<ToolsRuntimeSnapshot, String> {
+    tools::confirm_pomodoro_phase(app, &store(app)).await
+}

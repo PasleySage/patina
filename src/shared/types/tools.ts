@@ -2,7 +2,7 @@ export type ReminderStatus = "scheduled" | "fired" | "cancelled";
 export type TimerMode = "stopwatch" | "countdown";
 export type TimerStatus = "idle" | "running" | "paused" | "completed";
 export type PomodoroPhase = "focus" | "short_break" | "long_break";
-export type PomodoroStatus = "idle" | "running" | "paused" | "completed";
+export type PomodoroStatus = "idle" | "running" | "paused" | "awaiting_confirm" | "completed";
 export type ToolAlertKind = "reminder" | "countdown" | "pomodoro" | "activity_reminder";
 export interface ToolRuntimeSettings {
   defaultCountdownMinutes: number;

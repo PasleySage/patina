@@ -242,6 +242,15 @@ pub async fn cmd_reset_pomodoro(app: AppHandle) -> Result<ToolsRuntimeSnapshot, 
     tools::reset_pomodoro(&app).await
 }
 
+/// Acknowledge a phase that ran out, which starts the next one.
+///
+/// Separate from `cmd_skip_pomodoro_phase` on purpose: skipping abandons a phase, while
+/// this confirms one that already finished, so the two must not be conflated.
+#[tauri::command]
+pub async fn cmd_confirm_pomodoro_phase(app: AppHandle) -> Result<ToolsRuntimeSnapshot, String> {
+    tools::confirm_pomodoro_phase(&app).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

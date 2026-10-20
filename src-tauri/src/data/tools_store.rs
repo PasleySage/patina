@@ -121,6 +121,9 @@ impl<R: Runtime> ToolsStore for SqliteToolsStore<R> {
                     tools::skip_pomodoro_phase(&pool, &date_key, now_ms).await?;
                 }
                 ToolsMutation::ResetPomodoro => tools::reset_pomodoro(&pool, now_ms).await?,
+                ToolsMutation::ConfirmPomodoroPhase => {
+                    tools::confirm_pomodoro_phase(&pool, now_ms).await?;
+                }
             }
             Ok(())
         })

@@ -126,7 +126,9 @@ pub fn build_widget_status_snapshot(
             {
                 Some(WidgetToolState::Completed)
             }
-            PomodoroStatus::Idle | PomodoroStatus::Completed => None,
+            PomodoroStatus::Idle | PomodoroStatus::AwaitingConfirm | PomodoroStatus::Completed => {
+                None
+            }
         };
         if let Some(state) = state {
             tool_slots.push(WidgetToolProjection {

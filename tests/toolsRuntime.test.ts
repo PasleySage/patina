@@ -132,6 +132,35 @@ async function runTest(name: string, fn: () => Promise<void> | void) {
   console.log(`PASS ${name}`);
 }
 
+// A pomodoro that ran out parks in `awaiting_confirm` until the user confirms. The raw
+// DTO validator keeps a whitelist of statuses, so a status the backend can legitimately
+// emit must be in it — otherwise the *entire* snapshot is rejected as invalid and the
+// whole tools page fails to load, not just the pomodoro panel.
+await runTest("a pomodoro awaiting confirmation is accepted by the snapshot parser", () => {
+  const parsed = parseToolsRuntimeSnapshot(rawSnapshot({
+    current_pomodoro: {
+      id: 7,
+      phase: "short_break",
+      status: "awaiting_confirm",
+      cycle_index: 1,
+      focus_ms: 1_500_000,
+      short_break_ms: 300_000,
+      long_break_ms: 900_000,
+      long_break_every: 4,
+      phase_started_at: null,
+      phase_paused_at: 2_100_000,
+      phase_remaining_ms: 300_000,
+      completed_focus_count: 1,
+      created_at: 1_000_000,
+      updated_at: 2_100_000,
+    },
+  }));
+
+  assert.equal(parsed.currentPomodoro?.status, "awaiting_confirm");
+  assert.equal(parsed.currentPomodoro?.phase, "short_break");
+  assert.equal(parsed.currentPomodoro?.completedFocusCount, 1);
+});
+
 await runTest("raw tools snapshot maps snake_case fields", () => {
   const parsed = parseToolsRuntimeSnapshot(rawSnapshot());
   assert.equal(parsed.settings.defaultCountdownMinutes, 25);

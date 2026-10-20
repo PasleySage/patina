@@ -154,6 +154,9 @@ export function createToolsRuntimeGateway(deps: ToolsRuntimeGatewayDeps) {
     resetPomodoro(): Promise<ToolsRuntimeSnapshot> {
       return invokeToolsSnapshot("cmd_reset_pomodoro");
     },
+    confirmPomodoroPhase(): Promise<ToolsRuntimeSnapshot> {
+      return invokeToolsSnapshot("cmd_confirm_pomodoro_phase");
+    },
   };
 }
 
@@ -181,3 +184,4 @@ export const pausePomodoro = defaultToolsRuntimeGateway.pausePomodoro;
 export const resumePomodoro = defaultToolsRuntimeGateway.resumePomodoro;
 export const skipPomodoroPhase = defaultToolsRuntimeGateway.skipPomodoroPhase;
 export const resetPomodoro = defaultToolsRuntimeGateway.resetPomodoro;
+export const confirmPomodoroPhase = defaultToolsRuntimeGateway.confirmPomodoroPhase;

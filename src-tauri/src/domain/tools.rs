@@ -116,6 +116,10 @@ pub enum PomodoroStatus {
     Idle,
     Running,
     Paused,
+    /// A phase has run out and the run is waiting for the user to confirm before the
+    /// next phase starts. The alert has already fired; nothing advances until the user
+    /// acts, so a pomodoro never silently rolls into the next phase.
+    AwaitingConfirm,
     Completed,
 }
 
@@ -125,6 +129,7 @@ impl PomodoroStatus {
             PomodoroStatus::Idle => "idle",
             PomodoroStatus::Running => "running",
             PomodoroStatus::Paused => "paused",
+            PomodoroStatus::AwaitingConfirm => "awaiting_confirm",
             PomodoroStatus::Completed => "completed",
         }
     }
@@ -133,6 +138,7 @@ impl PomodoroStatus {
         match value.trim().to_ascii_lowercase().as_str() {
             "running" => PomodoroStatus::Running,
             "paused" => PomodoroStatus::Paused,
+            "awaiting_confirm" => PomodoroStatus::AwaitingConfirm,
             "completed" => PomodoroStatus::Completed,
             _ => PomodoroStatus::Idle,
         }
